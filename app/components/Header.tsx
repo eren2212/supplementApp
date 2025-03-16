@@ -84,6 +84,7 @@ const Header = () => {
                     alt="Avatar"
                     width={40}
                     height={40}
+                    className="rounded-3xl"
                   />
                 ) : (
                   <RxAvatar size={30} className="text-gray-500" />
