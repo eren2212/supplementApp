@@ -100,6 +100,14 @@ const Header = () => {
                   >
                     Profilim
                   </button>
+                  {session.user.role === "ADMIN" && (
+                    <button
+                      onClick={() => router.push("/admin")}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left cursor-pointer"
+                    >
+                      Paneli Git
+                    </button>
+                  )}
                   <button
                     onClick={handleSignOut}
                     className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left flex items-center gap-2"

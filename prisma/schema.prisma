@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(uuid()) @map("_id")
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
   name           String
   email          String    @unique
   hashedPassword String?
   image          String?
-  role           Role     @default(CUSTOMER)
+  role           Role      @default(CUSTOMER)
   addressId      String?   @map("address") @db.ObjectId
   address        Address?  @relation(fields: [addressId], references: [id])
   createdAt      DateTime  @default(now())
+
+  comments       Comment[]  // Kullanıcının yaptığı yorumlar
 }
 
 model Address {
@@ -32,6 +28,29 @@ model Address {
   country    String?
   postalCode String?
   users      User[]
+}
+
+model Supplement {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String
+  price       Float
+  stock       Int      @default(0)
+  imageUrl    String
+  createdAt   DateTime @default(now())
+
+  comments    Comment[] // Ürün yorumları
+}
+
+model Comment {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  supplementId String    @db.ObjectId
+  supplement   Supplement @relation(fields: [supplementId], references: [id])
+  userId       String    @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id])
+  content      String
+  rating       Int      @default(5) // 1-5 arası puan
+  createdAt    DateTime @default(now())
 }
 
 enum Role {

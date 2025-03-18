@@ -1,7 +1,12 @@
 import React from "react";
+import AdminDashboard from "@/app/components/admin/AdminDashboard";
 
 const Admin = () => {
-  return <div>bura admin sayfası</div>;
+  return (
+    <div>
+      <AdminDashboard />
+    </div>
+  );
 };
 
 export default Admin;

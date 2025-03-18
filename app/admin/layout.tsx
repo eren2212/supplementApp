@@ -1,6 +1,6 @@
-import LayoutClient from "@/app/components/auth/LayoutClient";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lora } from "next/font/google";
+import "../globals.css";
 
 import { Toaster } from "react-hot-toast";
 
