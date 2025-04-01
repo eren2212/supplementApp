@@ -1,13 +1,17 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Montserrat:wght@300;400;500;600&display=swap");
 
 @theme {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Montserrat", var(--font-geist-sans), sans-serif;
+  --font-serif: "Playfair Display", serif;
   --font-mono: var(--font-geist-mono);
 }
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --primary-font: "Montserrat", sans-serif;
+  --heading-font: "Playfair Display", serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,5 +24,57 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--primary-font);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Lüks tipografi stilleri */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--heading-font);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  @apply text-4xl md:text-5xl;
+}
+
+h2 {
+  @apply text-3xl md:text-4xl;
+}
+
+.luxury-text {
+  font-family: var(--heading-font);
+  @apply text-gray-900 dark:text-gray-100 tracking-tight;
+}
+
+.gold-accent {
+  color: #d4af37; /* Altın rengi */
+}
+
+/* Material UI uyumluluğu */
+.MuiTypography-root {
+  font-family: var(--primary-font) !important;
+}
+
+.MuiTypography-h1,
+.MuiTypography-h2,
+.MuiTypography-h3 {
+  font-family: var(--heading-font) !important;
+}
+
+/* Geist font fallbackları */
+.font-geist-sans {
+  font-family: var(--font-geist-sans), var(--primary-font);
+}
+
+.font-geist-mono {
+  font-family: var(--font-geist-mono), monospace;
 }
