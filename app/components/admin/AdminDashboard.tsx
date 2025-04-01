@@ -4,6 +4,17 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
   Button,
   Card,
   CardContent,
@@ -91,6 +102,13 @@ const sidebarItems = [
   { name: "Siteye Dön", href: "/", icon: <Home /> },
 ];
 
+const data = [
+  { name: "Ocak", sales: 4000 },
+  { name: "Şubat", sales: 3000 },
+  { name: "Mart", sales: 5000 },
+  { name: "Nisan", sales: 7000 },
+  { name: "Mayıs", sales: 6000 },
+];
 // Sabit istatistik verileri (hydration hatalarını önlemek için)
 const stats = [
   {
@@ -362,14 +380,96 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <StyledCard>
                 <CardContent>
-                  <Typography variant="h5" className="mb-4 font-serif">
-                    Satış Genel Bakış
-                  </Typography>
-                  <Box className="h-64 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg flex items-center justify-center">
-                    <Typography color="textSecondary">
-                      Grafik burada gösterilecek
+                  <div className="flex items-center justify-between mb-4">
+                    <Typography variant="h5" className="font-serif">
+                      Satış Dağılımı
                     </Typography>
-                  </Box>
+                    <Tooltip title="Kategorilere göre satış yüzdeleri">
+                      <IconButton size="small">
+                        <InfoOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row items-center">
+                    <div className="w-full md:w-1/2 h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: "Elektronik", value: 35 },
+                              { name: "Giyim", value: 25 },
+                              { name: "Ev Eşyaları", value: 20 },
+                              { name: "Kozmetik", value: 15 },
+                              { name: "Diğer", value: 5 },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {[
+                              "#6366F1",
+                              "#8B5CF6",
+                              "#EC4899",
+                              "#F59E0B",
+                              "#10B981",
+                            ].map((color, index) => (
+                              <Cell key={`cell-${index}`} fill={color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value, name, props) => [
+                              `${value}%`,
+                              name,
+                            ]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="w-full md:w-1/2 space-y-3 mt-4 md:mt-0 md:pl-4">
+                      {[
+                        { name: "Elektronik", value: 35, color: "#6366F1" },
+                        { name: "Giyim", value: 25, color: "#8B5CF6" },
+                        { name: "Ev Eşyaları", value: 20, color: "#EC4899" },
+                        { name: "Kozmetik", value: 15, color: "#F59E0B" },
+                        { name: "Diğer", value: 5, color: "#10B981" },
+                      ].map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2"
+                        >
+                          <div className="flex items-center">
+                            <div
+                              className="w-3 h-3 rounded-full mr-2"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <Typography variant="body2" className="font-medium">
+                              {item.name}
+                            </Typography>
+                          </div>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.value}%
+                          </Typography>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <Button
+                      fullWidth
+                      variant="text"
+                      color="primary"
+                      endIcon={<ArrowForward />}
+                      className="hover:bg-indigo-50"
+                    >
+                      Detaylı Rapor
+                    </Button>
+                  </div>
                 </CardContent>
               </StyledCard>
 

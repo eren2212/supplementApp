@@ -34,7 +34,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Luxury Admin Panel",
+  title: "Admin",
   description: "Premium Yönetim Paneli",
 };
 
