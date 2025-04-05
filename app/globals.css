@@ -78,3 +78,14 @@ h2 {
 .font-geist-mono {
   font-family: var(--font-geist-mono), monospace;
 }
+
+/* MUI bileşenlerinde font uyumu için */
+.MuiTypography-root {
+  font-family: inherit !important;
+}
+
+/* Butonlar ve diğer bileşenler için */
+.MuiButton-root,
+.MuiTextField-root {
+  font-family: inherit !important;
+}

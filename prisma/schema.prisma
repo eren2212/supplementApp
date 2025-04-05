@@ -14,21 +14,12 @@ model User {
   hashedPassword String?
   image          String?
   role           Role      @default(CUSTOMER)
-  addressId      String?   @map("address") @db.ObjectId
-  address        Address?  @relation(fields: [addressId], references: [id])
+  address        String?  
   createdAt      DateTime  @default(now())
-
   comments       Comment[]  // Kullanıcının yaptığı yorumlar
 }
 
-model Address {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  street     String?
-  city       String?
-  country    String?
-  postalCode String?
-  users      User[]
-}
+
 
 model Supplement {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
