@@ -22,9 +22,10 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { styled } from "@mui/material/styles";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const themeColors = {
   primary: "#7c3aed",
@@ -144,11 +145,11 @@ export default function ProfilePage() {
   const { data: session, status, update } = useSession();
   const theme = useTheme();
   const [userData, setUserData] = useState<UserData>({
-    name: session?.user?.name || "",
-    email: session?.user?.email || "",
-    address: session?.user?.address || null,
-    image: session?.user?.image || null,
-    role: session?.user?.role || "CUSTOMER",
+    name: "",
+    email: "",
+    address: null,
+    image: null,
+    role: "CUSTOMER",
   });
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -160,28 +161,79 @@ export default function ProfilePage() {
   const [profileUpdateError, setProfileUpdateError] = useState<string | null>(
     null
   );
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
-  // Create Axios instance with base config
   const api = axios.create({
     baseURL: "/api",
     headers: {
       "Content-Type": "application/json",
     },
   });
+  const isOAuthUser = session?.user && !("hashedPassword" in session.user);
+  const fetchProfile = async () => {
+    if (status === "authenticated") {
+      setIsLoadingProfile(true);
+      try {
+        // Session'dan temel bilgileri al
+        setUserData({
+          name: session.user?.name || "",
+          email: session.user?.email || "",
+          address: session.user?.address || null,
+          image: session.user?.image || null,
+          role: session.user?.role || "CUSTOMER",
+        });
 
+        // Ek bilgiler için API'ye istek at
+        const response = await api.get("/profile");
+        if (response.data?.data) {
+          setUserData((prev) => ({
+            ...prev,
+            ...response.data.data,
+          }));
+        }
+      } catch (error: any) {
+        console.error("Profil bilgileri alınırken hata:", error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, [status, session]);
+
+  useEffect(() => {
+    if (passwordDialogOpen) {
+      setCurrentPassword("");
+      setNewPassword("");
+    }
+  }, [passwordDialogOpen]);
   const handleEditField = (field: keyof UserData) => async (value: string) => {
     setProfileUpdateError(null);
     try {
       const { data } = await api.post("/profile", { [field]: value });
-      setUserData((prev: UserData) => ({ ...prev, ...data.data }));
-      await update(data.data);
-      return data; // Return the response data
+
+      // Local state'i güncelle
+      setUserData((prev) => ({ ...prev, [field]: value }));
+
+      // Session'ı güncelle
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          [field]: value,
+        },
+      });
+      toast.success("Başarılı bir şekilde bilgiler güncellendi.");
+      return data;
     } catch (error: any) {
-      console.error("Update error:", error);
+      console.error("Güncelleme hatası:", error);
       setProfileUpdateError(
         error.response?.data?.message ||
           "Profil güncelleme sırasında bir hata oluştu."
       );
+      toast.error("Profil güncelleme sırasında bir hata oluştu.");
       throw error;
     }
   };
@@ -192,35 +244,54 @@ export default function ProfilePage() {
       return;
     }
 
+    // API'ye istek atmadan önce basit bir frontend validasyonu
+    if (newPassword.length < 8) {
+      setPasswordUpdateError("Yeni şifre en az 8 karakter olmalıdır");
+      return;
+    }
+
     setIsUpdatingPassword(true);
-    setPasswordUpdateError(null);
+    setPasswordUpdateError("");
 
     try {
-      const response = await api.post("/api/profile/password", {
+      // ÖNCE MEVCUT ŞİFREYİ DOĞRULAMAK İÇİN BİR İSTEK ATALIM
+      const validateResponse = await api.post("/validate-password", {
+        currentPassword,
+      });
+
+      if (!validateResponse.data.isValid) {
+        // setPasswordUpdateError("Mevcut şifreniz yanlış!");
+        toast.error("Mevcut şifreniz yanlış!");
+        return; // API'ye gitme, fonksiyondan çık
+      }
+
+      // Eğer şifre doğruysa, gerçek şifre güncelleme isteğini yap
+      const updateResponse = await api.post("/password", {
         currentPassword,
         newPassword,
       });
-      if (response.data.success) {
+
+      if (updateResponse.data.success) {
         setPasswordDialogOpen(false);
         setCurrentPassword("");
         setNewPassword("");
-        // Başarı mesajı gösterebilirsiniz
+        toast.success("Şifre başarıyla güncellendi!");
       } else {
         setPasswordUpdateError(
-          response.data.message || "Şifre güncellenemedi."
+          updateResponse.data.message || "Şifre güncellenemedi"
         );
       }
     } catch (error: any) {
-      console.error("Password update error:", error);
+      console.error("Hata:", error);
       setPasswordUpdateError(
-        error.response?.data?.message || "Şifre güncellenemedi."
+        error.response?.data?.message ||
+          "Bir hata oluştu. Lütfen tekrar deneyin."
       );
     } finally {
       setIsUpdatingPassword(false);
     }
   };
-
-  if (status === "loading") {
+  if (status === "loading" || isLoadingProfile) {
     return (
       <Box
         display="flex"
@@ -233,7 +304,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!session) {
+  if (status === "unauthenticated") {
     return (
       <Box
         display="flex"

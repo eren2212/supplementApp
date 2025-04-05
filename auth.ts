@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import prisma from "@/libs/prismadb";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -18,28 +19,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Şifre", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("E-posta ve şifre gereklidir.");
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error("E-posta ve şifre gereklidir.");
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
+
+          if (!user || !user.hashedPassword) {
+            throw new Error("Kullanıcı bulunamadı veya şifre hatalı.");
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            user.hashedPassword
+          );
+
+          if (!isPasswordValid) {
+            throw new Error("Geçersiz şifre.");
+          }
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            address: user.address,
+            role: user.role,
+          };
+        } catch (error: any) {
+          throw new Error(error.message);
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-
-        if (!user || !user.hashedPassword) {
-          throw new Error("Kullanıcı bulunamadı veya şifre hatalı.");
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.hashedPassword
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Geçersiz şifre.");
-        }
-
-        return user;
       },
     }),
   ],
@@ -64,22 +74,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
     async jwt({ token, user }) {
-      if (user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email as string },
-        });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role; // Kullanıcının rolünü token içine ekliyoruz
+      try {
+        if (user) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email as string },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+            token.address = dbUser.address;
+            token.name = dbUser.name; // Kullanıcının rolünü token içine ekliyoruz
+          }
         }
+        return token;
+      } catch (error) {
+        console.error("JWT callback error:", error);
+        return token;
       }
-      return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.address = token.address;
+        session.user.id = token.id as string;
+        session.user.role = token.role as Role;
+        session.user.address = token.address as string | null;
+        session.user.name = token.name as string;
       }
       return session;
     },
