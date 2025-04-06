@@ -73,7 +73,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       try {
         if (user) {
           const dbUser = await prisma.user.findUnique({
@@ -83,7 +83,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.id = dbUser.id;
             token.role = dbUser.role;
             token.address = dbUser.address;
-            token.name = dbUser.name; // Kullanıcının rolünü token içine ekliyoruz
+            token.name = dbUser.name;
+            // Kullanıcının rolünü token içine ekliyoruz
+            token.provider = account?.provider || "credentials";
+            token.joinDate = dbUser.createdAt.toISOString();
           }
         }
         return token;
@@ -98,6 +101,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role as Role;
         session.user.address = token.address as string | null;
         session.user.name = token.name as string;
+        session.user.provider = token.provider as string;
+        session.user.joinDate = token.joinDate as string;
       }
       return session;
     },

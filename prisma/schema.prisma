@@ -15,7 +15,8 @@ model User {
   image          String?
   role           Role      @default(CUSTOMER)
   address        String?  
-  createdAt      DateTime  @default(now())
+  phone          String?  // Telefon numarası eklendi
+  createdAt      DateTime  @default(now()) // Bu zaten vardı
   comments       Comment[]  // Kullanıcının yaptığı yorumlar
 }
 
