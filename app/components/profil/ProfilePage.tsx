@@ -1,5 +1,7 @@
 "use client";
 import { useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
+import AccountDeleteButon from "./AccountDeleteButon";
 import {
   Box,
   Typography,
@@ -51,11 +53,12 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import UserActivities from "./UserActivities";
 
 dayjs.extend(relativeTime);
 dayjs.locale("tr");
 
-const themeColors = {
+export const themeColors = {
   primary: "#7c3aed",
   secondary: "#a78bfa",
   background: "#f8f5ff",
@@ -159,6 +162,7 @@ const ActivityItem = styled(ListItem)(({ theme }) => ({
 }));
 
 interface UserData {
+  id: string;
   name: string;
   email: string;
   address: string | null;
@@ -207,6 +211,8 @@ const EditableField: React.FC<EditableFieldProps> = ({
     try {
       await onEdit(fieldValue);
       setIsEditing(false);
+
+      // Aktivite kaydı ekleme
     } catch (error: any) {
       console.error("Error saving field:", error);
       setFieldError(error.message || "Alan güncellenirken bir hata oluştu.");
@@ -397,6 +403,7 @@ export default function ProfilePage() {
   const { data: session, status, update } = useSession();
   const theme = useTheme();
   const [userData, setUserData] = useState<UserData>({
+    id: "",
     name: "",
     email: "",
     address: null,
@@ -418,7 +425,6 @@ export default function ProfilePage() {
     null
   );
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [activities, setActivities] = useState<Activity[]>([]);
 
   const api = axios.create({
     baseURL: "/api",
@@ -435,11 +441,12 @@ export default function ProfilePage() {
       try {
         // Session'dan temel bilgileri al
         setUserData({
+          id: session.user?.id || " ",
           name: session.user?.name || "",
           email: session.user?.email || "",
           address: session.user?.address || null,
           phone:
-            "phone" in session.user ? (session.user.phone as string) : null, // phone alanı yoksa null
+            "phone" in session.user ? (session.user.phone as string) : null, // 📌 Telefon numarası da ekleniyor
           image: session.user?.image || null,
           role: session.user?.role || "CUSTOMER",
           joinDate: session.user?.joinDate || new Date().toISOString(),
@@ -453,46 +460,6 @@ export default function ProfilePage() {
             ...response.data.data,
           }));
         }
-
-        // Aktivite geçmişini getir
-        // const activitiesResponse = await api.get("/profile/activities");
-        // if (activitiesResponse.data?.data) {
-        //   const formattedActivities = activitiesResponse.data.data.map(
-        //     (activity: any) => {
-        //       let icon, title, description;
-        //       switch (activity.type) {
-        //         case "order":
-        //           icon = <OrderIcon />;
-        //           title = "Yeni Sipariş";
-        //           description = `#${activity.referenceId} numaralı sipariş oluşturuldu`;
-        //           break;
-        //         case "review":
-        //           icon = <StarIcon />;
-        //           title = "Yeni Yorum";
-        //           description = `${activity.productName} ürününe yorum yapıldı`;
-        //           break;
-        //         case "account":
-        //           icon = <PersonIcon />;
-        //           title = "Profil Güncelleme";
-        //           description = "Profil bilgileri güncellendi";
-        //           break;
-        //         default:
-        //           icon = <HistoryIcon />;
-        //           title = "Aktivite";
-        //           description = "Kullanıcı aktivitesi";
-        //       }
-        //       return {
-        //         id: activity.id,
-        //         type: activity.type,
-        //         title,
-        //         description,
-        //         date: activity.date,
-        //         icon,
-        //       };
-        //     }
-        //   );
-        //   setActivities(formattedActivities);
-        // }
       } catch (error: any) {
         console.error("Profil bilgileri alınırken hata:", error);
       } finally {
@@ -508,12 +475,19 @@ export default function ProfilePage() {
   const handleEditField = (field: keyof UserData) => async (value: string) => {
     setProfileUpdateError(null);
     try {
+      // Telefon numarası için özel doğrulama
+      if (field === "phone" && value && !/^\d{10,15}$/.test(value)) {
+        setProfileUpdateError(
+          "Telefon numarası 10-15 hane arasında olmalıdır."
+        );
+        toast.error("Geçersiz telefon numarası");
+        return;
+      }
+
       const { data } = await api.post("/profile", { [field]: value });
 
-      // Local state'i güncelle
       setUserData((prev) => ({ ...prev, [field]: value }));
 
-      // Session'ı güncelle
       await update({
         ...session,
         user: {
@@ -522,20 +496,15 @@ export default function ProfilePage() {
         },
       });
 
-      // Aktivite ekle
-      setActivities((prev) => [
-        {
-          id: Date.now().toString(),
-          type: "account",
-          title: "Profil Güncelleme",
-          description: `${field} alanı güncellendi`,
-          date: new Date().toISOString(),
-          icon: <PersonIcon />,
-        },
-        ...prev,
-      ]);
-
       toast.success("Profil bilgileri başarıyla güncellendi");
+
+      // Profil güncelleme aktivitesi kaydet
+      const fieldNames: Record<string, string> = {
+        name: "İsim",
+        phone: "Telefon",
+        address: "Adres",
+      };
+
       return data;
     } catch (error: any) {
       console.error("Güncelleme hatası:", error);
@@ -1016,80 +985,7 @@ export default function ProfilePage() {
                 </Grid>
               )}
 
-              {activeTab === 1 && (
-                <Card>
-                  <CardContent>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        mb: 3,
-                        display: "flex",
-                        alignItems: "center",
-                        color: themeColors.primary,
-                      }}
-                    >
-                      <HistoryIcon sx={{ mr: 1 }} />
-                      Son Aktiviteler
-                    </Typography>
-
-                    {activities.length > 0 ? (
-                      <List>
-                        {activities.map((activity) => (
-                          <ActivityItem key={activity.id}>
-                            <ListItemIcon
-                              sx={{
-                                minWidth: 40,
-                                color: themeColors.primary,
-                              }}
-                            >
-                              {activity.icon}
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={activity.title}
-                              secondary={activity.description}
-                              primaryTypographyProps={{
-                                fontWeight: 500,
-                              }}
-                              secondaryTypographyProps={{
-                                color: "textSecondary",
-                                fontSize: "0.875rem",
-                              }}
-                            />
-                            <Typography
-                              variant="caption"
-                              color="textSecondary"
-                              sx={{
-                                whiteSpace: "nowrap",
-                                ml: 2,
-                              }}
-                            >
-                              {dayjs(activity.date).fromNow()}
-                            </Typography>
-                          </ActivityItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Box
-                        display="flex"
-                        flexDirection="column"
-                        alignItems="center"
-                        py={4}
-                      >
-                        <HistoryIcon
-                          sx={{
-                            fontSize: 48,
-                            color: "text.disabled",
-                            mb: 2,
-                          }}
-                        />
-                        <Typography color="textSecondary">
-                          Henüz aktivite bulunmamaktadır
-                        </Typography>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+              {activeTab === 1 && <UserActivities />}
 
               {activeTab === 2 && !isOAuthUser && (
                 <Card>
@@ -1149,42 +1045,7 @@ export default function ProfilePage() {
                       </Button>
                     </Box>
 
-                    <Box
-                      sx={{
-                        backgroundColor: "rgba(239, 68, 68, 0.05)",
-                        borderRadius: 2,
-                        p: 3,
-                      }}
-                    >
-                      <Typography
-                        variant="body1"
-                        sx={{
-                          fontWeight: 600,
-                          mb: 1,
-                          color: themeColors.error,
-                        }}
-                      >
-                        Hesabı Sil
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="textSecondary"
-                        sx={{ mb: 2 }}
-                      >
-                        Hesabınızı silmek, tüm kişisel bilgilerinizin ve
-                        geçmişinizin kalıcı olarak silinmesine neden olur.
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        sx={{
-                          borderRadius: "8px",
-                          textTransform: "none",
-                        }}
-                      >
-                        Hesabı Sil
-                      </Button>
-                    </Box>
+                    <AccountDeleteButon />
                   </CardContent>
                 </Card>
               )}

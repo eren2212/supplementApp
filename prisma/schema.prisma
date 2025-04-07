@@ -20,6 +20,16 @@ model User {
   comments       Comment[]  // Kullanıcının yaptığı yorumlar
 }
 
+model Activity {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   // Kullanıcıyı belirtmek için
+  type        String   // Aktivite türü (Örneğin: "update", "password_change", "phone_change" vb.)
+  referenceId String?  // Referans id (Örneğin, işlem ile ilgili sipariş numarası veya başka bir id)
+  productName String?  // Yorum yapılan ürün veya ilgili ürün adı
+  description String   // Aktivitenin açıklaması
+  date        DateTime @default(now()) // Aktivitenin tarihi
+}
+
 
 
 model Supplement {

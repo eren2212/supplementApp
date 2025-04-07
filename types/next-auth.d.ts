@@ -7,6 +7,7 @@ declare module "next-auth" {
     id: string;
     role: Role;
     address?: string | null;
+    phone?: string | null;
     provider?: string;
     joinDate?: string; // Düzeltildi: `String?` yerine `string | null | undefined`
   }
@@ -21,6 +22,7 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     address?: string | null;
+    phone?: string | null;
     provider?: string;
     joinDate?: string; // JWT token'ında da aynı tip
   }

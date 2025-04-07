@@ -12,6 +12,7 @@ export async function POST(req: Request) {
   const { currentPassword } = await req.json();
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
+    select: { hashedPassword: true },
   });
 
   if (!user?.hashedPassword) {

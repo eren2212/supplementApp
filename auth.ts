@@ -84,6 +84,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.role = dbUser.role;
             token.address = dbUser.address;
             token.name = dbUser.name;
+            token.phone = dbUser.phone;
             // Kullanıcının rolünü token içine ekliyoruz
             token.provider = account?.provider || "credentials";
             token.joinDate = dbUser.createdAt.toISOString();
@@ -101,6 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role as Role;
         session.user.address = token.address as string | null;
         session.user.name = token.name as string;
+        session.user.phone = token.phone;
         session.user.provider = token.provider as string;
         session.user.joinDate = token.joinDate as string;
       }

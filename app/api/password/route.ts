@@ -2,10 +2,10 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import prisma from "@/libs/prismadb";
 import bcrypt from "bcryptjs";
+import { logPasswordChangeActivity } from "@/utils/activityService";
 
-export const dynamic = "force-dynamic"; // Önemli!
+export const dynamic = "force-dynamic";
 
-// app/api/password/route.ts
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.email) {
@@ -13,15 +13,18 @@ export async function POST(req: Request) {
   }
 
   const { currentPassword, newPassword } = await req.json();
+
+  // Kullanıcıyı ID ile birlikte alalım
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
+    select: { id: true, hashedPassword: true },
   });
 
   if (!user?.hashedPassword) {
     return NextResponse.json({ success: false }, { status: 404 });
   }
 
-  // Şifreyi tekrar kontrol et (güvenlik için)
+  // Şifreyi tekrar kontrol et
   const isCorrect = await bcrypt.compare(currentPassword, user.hashedPassword);
   if (!isCorrect) {
     return NextResponse.json(
@@ -36,6 +39,9 @@ export async function POST(req: Request) {
     where: { email: session.user.email },
     data: { hashedPassword },
   });
+
+  // Şifre değişikliği aktivitesi kaydet
+  await logPasswordChangeActivity(user.id);
 
   return NextResponse.json({ success: true });
 }
