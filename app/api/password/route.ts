@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import prisma from "@/libs/prismadb";
 import bcrypt from "bcryptjs";
-import { logPasswordChangeActivity } from "@/utils/activityService";
+import { logProfileUpdateActivity } from "@/utils/activityService";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,8 @@ export async function POST(req: Request) {
   });
 
   // Şifre değişikliği aktivitesi kaydet
-  await logPasswordChangeActivity(user.id);
+  // Şifre değişikliği aktivitesi kaydet
+  await logProfileUpdateActivity(user.id, ["password"]); // Array olarak gönderin
 
   return NextResponse.json({ success: true });
 }

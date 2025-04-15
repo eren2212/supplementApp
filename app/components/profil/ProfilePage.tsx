@@ -505,6 +505,20 @@ export default function ProfilePage() {
         address: "Adres",
       };
 
+      // Aktivite tipini belirle
+      let activityType: string = "PROFILE_UPDATE";
+      if (field === "phone") {
+        activityType = "PHONE_UPDATE";
+      } else if (field === "address") {
+        activityType = "ADDRESS_UPDATE";
+      }
+
+      // Aktivite kaydı oluştur
+      await api.post("/activities", {
+        type: activityType,
+        details: `${fieldNames[field]} güncellendi: ${value}`,
+      });
+
       return data;
     } catch (error: any) {
       console.error("Güncelleme hatası:", error);
@@ -552,6 +566,12 @@ export default function ProfilePage() {
       if (updateResponse.data.success) {
         setPasswordDialogOpen(false);
         toast.success("Şifre başarıyla güncellendi");
+
+        // Şifre değişikliği aktivitesi kaydet
+        await api.post("/activities", {
+          type: "PASSWORD_CHANGE",
+          details: "Hesap şifreniz başarıyla güncellendi",
+        });
       } else {
         setPasswordUpdateError(
           updateResponse.data.message || "Şifre güncellenemedi"

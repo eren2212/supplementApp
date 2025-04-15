@@ -1,11 +1,10 @@
-// app/api/activities/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/libs/prismadb";
 import { auth } from "@/auth";
+import { ActivityType } from "@/types/activitie";
 
 export async function POST(req: Request) {
   const session = await auth();
-
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -15,20 +14,43 @@ export async function POST(req: Request) {
   try {
     const activity = await prisma.activity.create({
       data: {
-        userId: session.user.email,
-        type,
+        userId: session.user.id || null, // EMAIL YERINE ID KULLAN
+        type: type as ActivityType,
         description: details || "",
-        referenceId: referenceId || "",
-        productName: productName || "",
+        referenceId: referenceId || null,
+        productName: productName || null,
         date: new Date(),
       },
     });
 
-    return NextResponse.json(activity);
+    return NextResponse.json({ success: true, data: activity });
   } catch (error) {
     console.error("Activity log error:", error);
     return NextResponse.json(
       { error: "Failed to log activity" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    // ID KULLAN
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const activities = await prisma.activity.findMany({
+      where: { userId: session.user.id }, // ID'YE GÖRE SORGULA
+      orderBy: { date: "desc" },
+    });
+
+    return NextResponse.json({ success: true, data: activities });
+  } catch (error) {
+    console.error("Error fetching activities:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch activities" },
       { status: 500 }
     );
   }

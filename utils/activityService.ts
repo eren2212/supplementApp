@@ -1,43 +1,41 @@
-// utils/activityService.ts
+import { ActivityType } from "@/types/activitie";
+
 export const logActivity = async (
   userId: string,
-  type: string,
-  details?: string,
+  type: ActivityType,
+  description?: string,
   referenceId?: string,
   productName?: string
 ) => {
   try {
-    const response = await fetch("/api/activities", {
+    await fetch("/api/activities", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type,
-        details,
+        details: description,
         referenceId,
         productName,
       }),
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to log activity");
-    }
   } catch (error) {
     console.error("Activity logging failed:", error);
   }
 };
 
-// Diğer fonksiyonlar aynı şekilde kalabilir
-export const logProfileUpdateActivity = async (
+export const logPasswordChangeActivity = (userId: string) => {
+  return logActivity(userId, "PASSWORD_CHANGE", "Şifre değiştirildi");
+};
+
+export const logProfileUpdateActivity = (
   userId: string,
   updatedFields: string[]
 ) => {
-  await logActivity(
+  return logActivity(
     userId,
-    "profile_update",
-    `Updated fields: ${updatedFields.join(", ")}`
+    "PROFILE_UPDATE",
+    `Güncellenen alanlar: ${updatedFields.join(", ")}`
   );
 };
 
-// ... diğer fonksiyonlar
+// Diğer aktivite fonksiyonlarını da büyük harfli enum değerleriyle güncelleyin
