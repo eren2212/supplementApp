@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -7,9 +7,10 @@ import { IoExitOutline } from "react-icons/io5";
 import { CiShoppingBasket } from "react-icons/ci";
 import { FiMenu, FiX } from "react-icons/fi";
 import { RxAvatar } from "react-icons/rx";
-
+import Badge from "@mui/material/Badge";
 import toast from "react-hot-toast";
 import Logo from "../../public/images/logo.png";
+import { useCartStore } from "../store/cartStore";
 
 const navigation = [
   { name: "Supplemenler", href: "/supplement" },
@@ -20,8 +21,15 @@ const navigation = [
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
+  const { getTotalItems } = useCartStore();
+  const totalItems = getTotalItems();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -68,7 +76,11 @@ const Header = () => {
             className="mr-3 cursor-pointer"
             onClick={() => router.push("/cart")}
           >
-            <CiShoppingBasket size={25} />
+            {mounted && (
+              <Badge badgeContent={totalItems} color={"primary"} max={9}>
+                <CiShoppingBasket size={25} />
+              </Badge>
+            )}
           </button>
 
           {/* Kullanıcı */}

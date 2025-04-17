@@ -446,7 +446,7 @@ export default function ProfilePage() {
           email: session.user?.email || "",
           address: session.user?.address || null,
           phone:
-            "phone" in session.user ? (session.user.phone as string) : null, // 📌 Telefon numarası da ekleniyor
+            "phone" in session.user ? (session.user.phone as string) : null,
           image: session.user?.image || null,
           role: session.user?.role || "CUSTOMER",
           joinDate: session.user?.joinDate || new Date().toISOString(),
@@ -455,9 +455,16 @@ export default function ProfilePage() {
         // Ek bilgiler için API'ye istek at
         const response = await api.get("/profile");
         if (response.data?.data) {
+          // Kullanıcının yorum sayısını al
+          const commentsResponse = await api.get(
+            `/comments/user/${session.user?.id}`
+          );
+          const reviewsCount = commentsResponse.data?.count || 0;
+
           setUserData((prev) => ({
             ...prev,
             ...response.data.data,
+            reviewsCount,
           }));
         }
       } catch (error: any) {

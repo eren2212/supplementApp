@@ -30,7 +30,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "scripts/seed.mts"
+    "scripts/seed.mts",
+    "scripts/update-supplement-categories.mts"
   ],
   "exclude": ["node_modules"]
 }
