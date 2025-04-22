@@ -1,7 +1,7 @@
+import BlogClient from "@/app/components/blog/BlogClient";
 import React from "react";
-import BlogClient from "../../components/blog/BlogClient";
 
-const Blog = () => {
+const page = () => {
   return (
     <div>
       <BlogClient />
@@ -9,4 +9,4 @@ const Blog = () => {
   );
 };
 
-export default Blog;
+export default page;

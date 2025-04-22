@@ -1,32 +1,29 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { BlogPost } from "@prisma/client";
 
 const BlogClient = () => {
-  const blogPosts = [
-    {
-      title: "Sağlıklı Yaşam İçin 5 Öneri",
-      date: "2 Mart 2025",
-      excerpt:
-        "Sağlıklı bir yaşam tarzı benimsemek için dikkat etmeniz gereken temel unsurları keşfedin...",
-      image: "/images/Telefon-1.png",
-    },
-    {
-      title: "Vitamin Takviyeleri: Ne Zaman Kullanılmalı?",
-      date: "28 Şubat 2025",
-      excerpt:
-        "Vitamin takviyelerinin faydaları ve hangi durumlarda kullanılmaları gerektiğini inceleyin...",
-      image: "/images/Telefon-1.png",
-    },
-    {
-      title: "Bağışıklık Sistemini Güçlendiren Besinler",
-      date: "25 Şubat 2025",
-      excerpt:
-        "Bağışıklık sisteminizi güçlendirecek besinler hakkında bilmeniz gereken her şey...",
-      image: "/images/Telefon-1.png",
-    },
-  ];
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBlogPosts = async () => {
+      try {
+        const response = await fetch("/api/blogs");
+        const data = await response.json();
+        setBlogPosts(data);
+      } catch (error) {
+        console.error("Error fetching blog posts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlogPosts();
+  }, []);
 
   return (
     <div className="relative isolate px-6 lg:px-8">
@@ -60,31 +57,58 @@ const BlogClient = () => {
           </motion.h1>
         </motion.div>
 
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-10">
-          {blogPosts.map((post, index) => (
-            <motion.article
-              className="post bg-white p-6 rounded-lg shadow-lg"
-              key={index}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1 }}
-            >
-              <h2 className="text-xl font-semibold text-gray-900">
-                {post.title}
-              </h2>
-              <p className="text-gray-500 text-sm mt-2">{post.date}</p>
-              <p className="mt-4 text-gray-600">{post.excerpt}</p>
-              <div className="flex justify-end mt-4">
-                <a
-                  href="#"
-                  className="text-indigo-600 font-semibold hover:underline"
-                >
-                  Devamını Oku
-                </a>
-              </div>
-            </motion.article>
-          ))}
-        </section>
+        {loading ? (
+          <div className="flex justify-center items-center mt-10 h-40">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : (
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-10">
+            {blogPosts.map((post) => (
+              <motion.article
+                className="post bg-white p-6 rounded-lg shadow-lg"
+                key={post.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1 }}
+              >
+                {post.imageUrl && (
+                  <div className="mb-4 relative h-48 w-full overflow-hidden rounded-lg">
+                    <img
+                      src={`/BlogImage/${post.imageUrl}`}
+                      alt={post.title}
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                )}
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {post.title}
+                </h2>
+                <p className="text-gray-500 text-sm mt-2">
+                  {new Date(post.createdAt).toLocaleDateString("tr-TR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+                <p className="mt-4 text-gray-600">{post.summary}</p>
+                <div className="flex justify-end mt-4">
+                  <Link
+                    href={`/blog/${post.id}`}
+                    className="text-indigo-600 font-semibold hover:underline"
+                  >
+                    Devamını Oku
+                  </Link>
+                </div>
+              </motion.article>
+            ))}
+          </section>
+        )}
+
+        {!loading && blogPosts.length === 0 && (
+          <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Henüz blog yazısı bulunmamaktadır.</p>
+          </div>
+        )}
       </div>
 
       <div
