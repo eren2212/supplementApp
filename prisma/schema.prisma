@@ -57,6 +57,17 @@ model Comment {
   createdAt    DateTime  @default(now())
 }
 
+model BlogPost {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String   // Blog başlığı
+  slug        String   @unique // URL-friendly başlık (örn: kreatin-performans-risk)
+  summary     String   // Önizleme açıklaması (kartta görünen kısa açıklama)
+  content     String   // Tüm içerik (rich metin olarak kaydedilebilir)
+  imageUrl    String?  // Karttaki görsel URL’si
+  createdAt   DateTime @default(now()) // Yayınlanma tarihi
+  authorId    String?  @db.ObjectId
+}
+
 enum Role {
   CUSTOMER
   DOCTOR
