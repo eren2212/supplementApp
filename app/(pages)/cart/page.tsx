@@ -7,6 +7,16 @@ import { toast } from "react-hot-toast";
 import Link from "next/link";
 import { useCartStore } from "../../store/cartStore";
 import { AiOutlineDelete } from "react-icons/ai";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+} from "@mui/material";
 
 interface CartItem {
   id: string;
@@ -21,6 +31,9 @@ export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, getTotalPrice } =
     useCartStore();
   const total = getTotalPrice();
+  const [itemToRemove, setItemToRemove] = useState<string | null>(null);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchProductDetails();
@@ -55,14 +68,36 @@ export default function CartPage() {
     updateQuantity(id, newQuantity);
   };
 
-  const handleRemoveItem = (id: string) => {
-    removeItem(id);
-    toast.success("Ürün sepetten kaldırıldı.");
+  const openRemoveDialog = (id: string) => {
+    setItemToRemove(id);
+    setRemoveDialogOpen(true);
+  };
+
+  const closeRemoveDialog = () => {
+    setRemoveDialogOpen(false);
+    setItemToRemove(null);
+  };
+
+  const openClearDialog = () => {
+    setClearDialogOpen(true);
+  };
+
+  const closeClearDialog = () => {
+    setClearDialogOpen(false);
+  };
+
+  const handleRemoveItem = () => {
+    if (itemToRemove) {
+      removeItem(itemToRemove);
+      toast.success("Ürün sepetten kaldırıldı.");
+      closeRemoveDialog();
+    }
   };
 
   const handleClearCart = () => {
     clearCart();
     toast.success("Sepet başarıyla temizlendi.");
+    closeClearDialog();
   };
 
   if (loading) {
@@ -74,6 +109,12 @@ export default function CartPage() {
       </div>
     );
   }
+
+  // İsmi bulmak için yardımcı fonksiyon
+  const getItemName = (id: string) => {
+    const item = items.find((item) => item.id === id);
+    return item?.name || "Ürün";
+  };
 
   return (
     <div className="container mx-auto px-4 py-10 mt-25">
@@ -172,7 +213,7 @@ export default function CartPage() {
 
                       <motion.button
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => handleRemoveItem(item.id)}
+                        onClick={() => openRemoveDialog(item.id)}
                         className="text-red-500 hover:text-red-700 font-medium cursor-pointer"
                       >
                         Kaldır
@@ -191,7 +232,7 @@ export default function CartPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleClearCart}
+                onClick={openClearDialog}
                 className="px-5 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition cursor-pointer"
               >
                 Sepeti Temizle
@@ -246,6 +287,98 @@ export default function CartPage() {
           </div>
         </div>
       )}
+
+      {/* Ürün Silme Dialog */}
+      <Dialog
+        open={removeDialogOpen}
+        onClose={closeRemoveDialog}
+        aria-labelledby="remove-dialog-title"
+        aria-describedby="remove-dialog-description"
+      >
+        <DialogTitle id="remove-dialog-title" sx={{ color: "error.main" }}>
+          Ürünü Sepetten Çıkar
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="remove-dialog-description">
+            <strong>{getItemName(itemToRemove || "")}</strong> ürününü
+            sepetinizden çıkarmak istediğinize emin misiniz?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={closeRemoveDialog}
+            variant="outlined"
+            sx={{ borderRadius: "8px" }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleRemoveItem}
+            color="error"
+            variant="contained"
+            sx={{
+              borderRadius: "8px",
+              "&:hover": {
+                backgroundColor: "error.dark",
+              },
+            }}
+          >
+            Evet, Çıkar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Sepet Temizleme Dialog */}
+      <Dialog
+        open={clearDialogOpen}
+        onClose={closeClearDialog}
+        aria-labelledby="clear-dialog-title"
+        aria-describedby="clear-dialog-description"
+      >
+        <DialogTitle id="clear-dialog-title" sx={{ color: "error.main" }}>
+          Sepeti Temizle
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="clear-dialog-description">
+            Sepetinizdeki tüm ürünleri kaldırmak istediğinize emin misiniz?
+          </DialogContentText>
+          <Box
+            sx={{
+              mt: 2,
+              p: 2,
+              backgroundColor: "rgba(239, 68, 68, 0.05)",
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="body2" color="error">
+              <strong>Uyarı:</strong> Bu işlem geri alınamaz ve sepetinizdeki
+              tüm ürünler kaldırılacaktır.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={closeClearDialog}
+            variant="outlined"
+            sx={{ borderRadius: "8px" }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleClearCart}
+            color="error"
+            variant="contained"
+            sx={{
+              borderRadius: "8px",
+              "&:hover": {
+                backgroundColor: "error.dark",
+              },
+            }}
+          >
+            Evet, Temizle
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

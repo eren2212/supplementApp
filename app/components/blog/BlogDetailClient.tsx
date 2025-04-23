@@ -61,7 +61,7 @@ const BlogDetailClient = ({ id }: BlogDetailClientProps) => {
   }
 
   return (
-    <div className="relative isolate px-6 py-10 lg:px-8">
+    <div className="relative isolate px-6 py-10 lg:px-8 mt-15">
       <div
         aria-hidden="true"
         className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
