@@ -211,7 +211,7 @@ export default function SupplementsPage() {
                         </svg>
                         Sepete Ekle
                       </motion.button>
-                      <Link href={`/supplements/${supplement.id}`} passHref>
+                      <Link href={`/supplement/${supplement.id}`} passHref>
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}

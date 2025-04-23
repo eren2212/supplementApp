@@ -95,6 +95,7 @@ const theme = createTheme({
 // Yan menü öğeleri
 const sidebarItems = [
   { name: "Panel", href: "/admin", icon: <Dashboard /> },
+  { name: "Takviyeler", href: "/admin/supplements", icon: <Inventory /> },
   { name: "Ürünler", href: "/admin/products", icon: <Inventory /> },
   { name: "Siparişler", href: "/admin/orders", icon: <ShoppingCart /> },
   { name: "Müşteriler", href: "/admin/customers", icon: <People /> },
@@ -218,50 +219,56 @@ const AdminDashboard = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <div className="flex h-screen bg-gray-50 font-sans">
+      <div className="flex h-screen bg-gray-50">
         {/* Yan Menü */}
         <div
-          className={`${
-            collapsed ? "w-20" : "w-64"
-          } bg-gradient-to-b from-indigo-900 to-purple-900 p-4 transition-all duration-300 flex flex-col items-center`}
-          style={{
-            boxShadow: "4px 0 15px rgba(0, 0, 0, 0.1)",
-          }}
+          className={`bg-indigo-700 text-white transition-all duration-300 ease-in-out flex flex-col ${
+            collapsed ? "w-16" : "w-64"
+          }`}
         >
-          <div className="flex items-center justify-between w-full mb-8">
+          <div className="p-4 flex items-center justify-between">
             {!collapsed && (
-              <Typography
-                variant="h6"
-                className="text-white font-bold font-serif"
-              >
-                Yönetim Paneli
+              <Typography variant="h6" className="tracking-wide font-bold">
+                Admin Panel
               </Typography>
             )}
             <IconButton
               onClick={() => setCollapsed(!collapsed)}
               className="text-white"
-              aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
             >
               {collapsed ? <MenuIcon /> : <ChevronLeft />}
             </IconButton>
           </div>
 
-          <nav className="mt-5 w-full">
-            {sidebarItems.map(({ name, href, icon }) => (
-              <Link key={href} href={href} passHref legacyBehavior>
-                <div
-                  className={`flex items-center p-3 rounded-lg transition-all cursor-pointer mb-2 w-full ${
-                    pathname === href
+          <Divider className="bg-white bg-opacity-20" />
+
+          <div className="p-2">
+            {sidebarItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center p-2 my-2 rounded-lg transition-colors ${
+                    isActive
                       ? "bg-white bg-opacity-20"
-                      : "text-gray-300 hover:bg-gray-500 hover:bg-opacity-20 hover:text-white"
+                      : "hover:bg-white hover:bg-opacity-10"
                   }`}
                 >
-                  <span className="mr-3">{icon}</span>
-                  {!collapsed && <span className="font-medium">{name}</span>}
-                </div>
-              </Link>
-            ))}
-          </nav>
+                  <div
+                    className={`flex items-center ${
+                      collapsed ? "justify-center w-full" : ""
+                    }`}
+                  >
+                    {item.icon}
+                    {!collapsed && (
+                      <span className="ml-3 font-medium">{item.name}</span>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
 
           {!collapsed && (
             <div className="mt-auto w-full">
@@ -313,7 +320,7 @@ const AdminDashboard = () => {
           </header>
 
           {/* İçerik */}
-          <main className="flex-1 p-6 overflow-auto">
+          <div className="flex-1 overflow-auto p-6">
             {/* İstatistik Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map(({ label, value, icon, trend }, index) => (
@@ -719,7 +726,7 @@ const AdminDashboard = () => {
                 </CardContent>
               </StyledCard>
             </div>
-          </main>
+          </div>
         </div>
       </div>
     </ThemeProvider>
