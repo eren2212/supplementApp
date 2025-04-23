@@ -5,9 +5,6 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
   Button,
-  Card,
-  CardContent,
-  Typography,
   TextField,
   FormControl,
   InputLabel,
@@ -16,22 +13,25 @@ import {
   Box,
   Grid,
   Paper,
-  Divider,
-  CircularProgress,
   IconButton,
   Chip,
   FormHelperText,
   InputAdornment,
   Switch,
   FormControlLabel,
+  Typography,
+  Card,
+  CardContent,
+  Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
   Save as SaveIcon,
   ArrowBack,
   Image as ImageIcon,
   KeyboardArrowUp,
-  Add as AddIcon,
   Close as CloseIcon,
+  PhotoCamera,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import { SelectChangeEvent } from "@mui/material/Select";
@@ -41,9 +41,13 @@ import { toast } from "react-hot-toast";
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius * 2,
-  boxShadow: theme.shadows[4],
+  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.07)",
   transition: "transform 0.3s ease, box-shadow 0.3s ease",
   height: "100%",
+  overflow: "hidden",
+  "&:hover": {
+    boxShadow: "0 12px 40px rgba(0, 0, 0, 0.09)",
+  },
 }));
 
 const GradientButton = styled(Button)(({ theme }) => ({
@@ -52,25 +56,23 @@ const GradientButton = styled(Button)(({ theme }) => ({
   color: "white",
   padding: "12px 32px",
   fontWeight: "bold",
+  transition: "all 0.3s ease",
   "&:hover": {
     background: "linear-gradient(45deg, #5253D3 30%, #7A4BE0 90%)",
-    boxShadow: "0 3px 5px 2px rgba(99, 102, 241, .3)",
+    boxShadow: "0 6px 12px rgba(99, 102, 241, 0.25)",
+    transform: "translateY(-2px)",
   },
 }));
 
-const categories = [
-  "VITAMIN",
-  "MINERAL",
-  "PROTEIN",
-  "OMEGA",
-  "AMINO_ACID",
-  "HERB",
-  "PROBIOTIC",
-  "JOINT",
-  "SLEEP",
-  "ENERGY",
-  "OTHER",
-];
+// Map kategori isimleri: İngilizce enum değeri -> Türkçe görünen adı
+const categoryMap = {
+  BRAIN: "Beyin Sağlığı",
+  WOMEN_HEALTH: "Kadın Sağlığı",
+  MENS_HEALTH: "Erkek Sağlığı",
+  HEART: "Kalp Sağlığı",
+  SLEEP: "Uyku Düzeni",
+  ENERGY: "Enerji",
+};
 
 interface FormData {
   name: string;
@@ -98,6 +100,7 @@ const NewSupplementPage = () => {
     {}
   );
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const handleInputChange = (
     e:
@@ -215,37 +218,69 @@ const NewSupplementPage = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <Grid container spacing={3}>
+    <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      <Grid container spacing={4}>
         {/* Header */}
         <Grid item xs={12}>
-          <Box className="flex justify-between items-center mb-4">
+          <Box className="flex justify-between items-center mb-6">
             <Box className="flex items-center">
-              <IconButton onClick={goBack} className="mr-2">
+              <IconButton
+                onClick={goBack}
+                className="mr-2"
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.8)",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                  mr: 2,
+                  "&:hover": {
+                    backgroundColor: "white",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  },
+                }}
+              >
                 <ArrowBack />
               </IconButton>
-              <Typography variant="h4" className="font-serif">
+              <Typography
+                variant="h4"
+                className="font-serif"
+                sx={{
+                  fontWeight: 700,
+                  color: "#2D3748",
+                  position: "relative",
+                  "&:after": {
+                    content: '""',
+                    position: "absolute",
+                    width: "30%",
+                    height: "4px",
+                    bottom: "-10px",
+                    left: "0",
+                    background: "linear-gradient(90deg, #6366F1, #8B5CF6)",
+                    borderRadius: "2px",
+                  },
+                }}
+              >
                 Yeni Takviye Ekle
               </Typography>
             </Box>
             <Box>
-              <GradientButton
-                className="mr-3"
+              <Button
+                variant="outlined"
                 onClick={goBack}
                 startIcon={<ArrowBack />}
                 sx={{
-                  background: "transparent",
-                  border: "1px solid #6366F1",
+                  borderRadius: "30px",
+                  borderColor: "#6366F1",
                   color: "#6366F1",
+                  mr: 2,
+                  px: 3,
+                  py: 1,
                   "&:hover": {
-                    background: "rgba(99, 102, 241, 0.05)",
-                    boxShadow: "none",
+                    borderColor: "#5253D3",
+                    backgroundColor: "rgba(99, 102, 241, 0.05)",
                   },
-                  marginRight: "10px",
                 }}
               >
                 İptal
-              </GradientButton>
+              </Button>
               <GradientButton
                 startIcon={
                   isLoading ? (
@@ -266,9 +301,29 @@ const NewSupplementPage = () => {
         {/* Form */}
         <Grid item xs={12} md={8}>
           <StyledCard>
-            <CardContent>
+            <CardContent sx={{ p: 4 }}>
               <form onSubmit={handleSubmit}>
-                <Typography variant="h6" className="mb-4">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    mb: 4,
+                    fontWeight: 600,
+                    color: "#4A5568",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      backgroundColor: "#6366F1",
+                      display: "inline-block",
+                      mr: 2,
+                    }}
+                  />
                   Takviye Bilgileri
                 </Typography>
                 <Grid container spacing={3}>
@@ -283,6 +338,11 @@ const NewSupplementPage = () => {
                       error={!!errors.name}
                       helperText={errors.name}
                       variant="outlined"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                        },
+                      }}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -301,6 +361,11 @@ const NewSupplementPage = () => {
                           <InputAdornment position="start">₺</InputAdornment>
                         ),
                         inputProps: { min: 0, step: 0.01 },
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                        },
                       }}
                     />
                   </Grid>
@@ -321,10 +386,24 @@ const NewSupplementPage = () => {
                         ),
                         inputProps: { min: 0 },
                       }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                        },
+                      }}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth required error={!!errors.category}>
+                    <FormControl
+                      fullWidth
+                      required
+                      error={!!errors.category}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                        },
+                      }}
+                    >
                       <InputLabel>Kategori</InputLabel>
                       <Select
                         name="category"
@@ -332,9 +411,9 @@ const NewSupplementPage = () => {
                         onChange={handleInputChange}
                         label="Kategori"
                       >
-                        {categories.map((category) => (
-                          <MenuItem key={category} value={category}>
-                            {category.replace("_", " ")}
+                        {Object.entries(categoryMap).map(([value, label]) => (
+                          <MenuItem key={value} value={value}>
+                            {label}
                           </MenuItem>
                         ))}
                       </Select>
@@ -344,47 +423,106 @@ const NewSupplementPage = () => {
                     </FormControl>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={formData.featured}
-                          onChange={handleSwitchChange}
-                          name="featured"
-                          color="primary"
-                        />
-                      }
-                      label="Öne Çıkan Ürün"
-                    />
+                    <Paper
+                      sx={{
+                        p: 2,
+                        borderRadius: "12px",
+                        backgroundColor: "rgba(249, 250, 251, 0.8)",
+                        border: "1px solid rgba(229, 231, 235, 0.5)",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.featured}
+                            onChange={handleSwitchChange}
+                            name="featured"
+                            color="primary"
+                          />
+                        }
+                        label={
+                          <Typography sx={{ fontWeight: 500 }}>
+                            Öne Çıkan Ürün
+                          </Typography>
+                        }
+                      />
+                    </Paper>
                   </Grid>
                   <Grid item xs={12}>
-                    <TextField
-                      label="Resim URL"
-                      name="imageUrl"
-                      value={formData.imageUrl}
-                      onChange={handleInputChange}
-                      fullWidth
-                      error={!!errors.imageUrl}
-                      helperText={
-                        errors.imageUrl ||
-                        "Boş bırakılırsa varsayılan resim kullanılır"
-                      }
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={handleImagePreview}
-                              disabled={
-                                !formData.imageUrl ||
-                                !formData.imageUrl.startsWith("http")
-                              }
-                              edge="end"
-                            >
-                              <ImageIcon />
-                            </IconButton>
-                          </InputAdornment>
-                        ),
+                    <Box
+                      sx={{
+                        p: 3,
+                        borderRadius: "12px",
+                        border: "1px dashed #CBD5E0",
+                        backgroundColor: "rgba(249, 250, 251, 0.8)",
+                        mb: 3,
                       }}
-                    />
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ mb: 2, color: "#4A5568", fontWeight: 600 }}
+                      >
+                        Ürün Görseli
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <TextField
+                          label="Resim URL"
+                          name="imageUrl"
+                          value={formData.imageUrl}
+                          onChange={handleInputChange}
+                          fullWidth
+                          error={!!errors.imageUrl}
+                          helperText={
+                            errors.imageUrl ||
+                            "Boş bırakılırsa varsayılan resim kullanılır"
+                          }
+                          variant="outlined"
+                          sx={{
+                            mr: 2,
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "12px",
+                            },
+                          }}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleImagePreview}
+                                  disabled={
+                                    !formData.imageUrl ||
+                                    !formData.imageUrl.startsWith("http")
+                                  }
+                                  edge="end"
+                                >
+                                  <ImageIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                        <Button
+                          variant="contained"
+                          component="label"
+                          sx={{
+                            borderRadius: "12px",
+                            backgroundColor: "#6366F1",
+                            "&:hover": {
+                              backgroundColor: "#5253D3",
+                            },
+                            minWidth: "auto",
+                            width: "48px",
+                            height: "48px",
+                            p: 0,
+                          }}
+                        >
+                          <PhotoCamera />
+                          <input type="file" hidden />
+                        </Button>
+                      </Box>
+                    </Box>
                   </Grid>
                   <Grid item xs={12}>
                     <TextField
@@ -398,6 +536,11 @@ const NewSupplementPage = () => {
                       rows={6}
                       error={!!errors.description}
                       helperText={errors.description}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                        },
+                      }}
                     />
                   </Grid>
                 </Grid>
@@ -408,76 +551,210 @@ const NewSupplementPage = () => {
 
         {/* Preview Section */}
         <Grid item xs={12} md={4}>
-          <StyledCard>
-            <CardContent>
-              <Typography variant="h6" className="mb-4">
+          <StyledCard sx={{ position: "sticky", top: "20px" }}>
+            <Box
+              sx={{
+                p: 2,
+                backgroundColor: "#6366F1",
+                color: "white",
+                borderTopLeftRadius: "inherit",
+                borderTopRightRadius: "inherit",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 Önizleme
               </Typography>
+            </Box>
+            <CardContent sx={{ p: 3 }}>
               <Paper
                 elevation={0}
-                className="bg-gray-100 rounded-lg p-4 flex flex-col items-center"
+                sx={{
+                  backgroundColor: "rgba(249, 250, 251, 0.8)",
+                  borderRadius: "16px",
+                  p: 3,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  border: "1px solid rgba(229, 231, 235, 0.5)",
+                  overflow: "hidden",
+                }}
               >
-                <Box className="w-full h-48 mb-3 rounded-lg overflow-hidden bg-white">
+                <Box
+                  sx={{
+                    width: "100%",
+                    height: "200px",
+                    mb: 3,
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    backgroundColor: "white",
+                    border: "1px solid rgba(229, 231, 235, 0.7)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {formData.imageUrl ? (
                     <img
-                      src={`/SupplementImage/${formData.imageUrl}`}
+                      src={formData.imageUrl}
                       alt="Preview"
-                      className="w-full h-full object-contain"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
                           "https://via.placeholder.com/400x400?text=Görsel+Yüklenemedi";
                       }}
                     />
                   ) : (
-                    <Box className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <ImageIcon style={{ fontSize: 48, color: "#9CA3AF" }} />
+                    <Box
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#F7FAFC",
+                        flexDirection: "column",
+                        p: 3,
+                      }}
+                    >
+                      <ImageIcon sx={{ fontSize: 48, color: "#CBD5E0" }} />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "#718096",
+                          mt: 1,
+                          textAlign: "center",
+                        }}
+                      >
+                        Ürün görseli eklendiğinde burada görünecek
+                      </Typography>
                     </Box>
                   )}
                 </Box>
-                <Typography variant="h6" className="font-bold text-center">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 700,
+                    textAlign: "center",
+                    color: "#2D3748",
+                  }}
+                >
                   {formData.name || "Takviye Adı"}
                 </Typography>
                 {formData.category && (
                   <Chip
-                    label={formData.category.replace("_", " ")}
+                    label={
+                      categoryMap[formData.category as keyof typeof categoryMap]
+                    }
                     size="small"
-                    color="primary"
-                    className="my-2"
+                    sx={{
+                      my: 2,
+                      backgroundColor: "#EBF4FF",
+                      color: "#3182CE",
+                      fontWeight: 500,
+                      borderRadius: "8px",
+                    }}
                   />
                 )}
                 <Typography
                   variant="body1"
-                  className="font-bold text-center text-indigo-600 my-2"
+                  sx={{
+                    fontWeight: 700,
+                    textAlign: "center",
+                    color: "#5A67D8",
+                    my: 2,
+                    fontSize: "1.25rem",
+                  }}
                 >
                   {formData.price
                     ? `${parseFloat(formData.price).toLocaleString("tr-TR")} ₺`
                     : "0.00 ₺"}
                 </Typography>
-                <Divider className="w-full my-2" />
+                <Divider sx={{ width: "100%", my: 2 }} />
                 <Typography
                   variant="body2"
-                  className="text-gray-600 text-center line-clamp-3"
+                  sx={{
+                    color: "#718096",
+                    textAlign: "center",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
                   title={formData.description}
                 >
                   {formData.description || "Ürün açıklaması burada görünecek"}
                 </Typography>
               </Paper>
 
-              <Box className="mt-4">
-                <Typography variant="subtitle2" className="mb-2">
+              <Box sx={{ mt: 4 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    mb: 2,
+                    color: "#4A5568",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: "#6366F1",
+                      display: "inline-block",
+                      mr: 1,
+                    }}
+                  />
                   Önizleme Notları
                 </Typography>
-                <ul className="text-gray-600 pl-5">
-                  <li className="text-sm mb-1">
-                    Ürün bilgileri kaydedilmeden önce önizleme yapılabilir
-                  </li>
-                  <li className="text-sm mb-1">
-                    Önizleme, gerçek ürün sayfasından farklı olabilir
-                  </li>
-                  <li className="text-sm">
-                    Resim URL'si için geçerli bir web adresi girilmelidir
-                  </li>
-                </ul>
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor: "#EDF2F7",
+                    borderRadius: "12px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
+                  <ul
+                    style={{
+                      color: "#718096",
+                      paddingLeft: "20px",
+                      margin: 0,
+                    }}
+                  >
+                    <li
+                      style={{
+                        fontSize: "0.875rem",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Ürün bilgileri kaydedilmeden önce önizleme yapılabilir
+                    </li>
+                    <li
+                      style={{
+                        fontSize: "0.875rem",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Önizleme, gerçek ürün sayfasından farklı olabilir
+                    </li>
+                    <li
+                      style={{
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      Resim URL'si için geçerli bir web adresi girilmelidir
+                    </li>
+                  </ul>
+                </Box>
               </Box>
             </CardContent>
           </StyledCard>
@@ -487,20 +764,43 @@ const NewSupplementPage = () => {
       {/* Image Preview Dialog */}
       {previewImage && (
         <Box
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+          }}
           onClick={handleClosePreview}
         >
-          <Box className="relative">
+          <Box sx={{ position: "relative", maxWidth: "90%" }}>
             <IconButton
-              className="absolute top-2 right-2 bg-white hover:bg-gray-200"
+              sx={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                backgroundColor: "white",
+                "&:hover": {
+                  backgroundColor: "#f0f0f0",
+                },
+                zIndex: 1,
+              }}
               onClick={handleClosePreview}
             >
               <CloseIcon />
             </IconButton>
             <img
-              src={`/SupplementImage/${previewImage}`}
+              src={previewImage}
               alt="Image Preview"
-              className="max-w-full max-h-[80vh] rounded-lg"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "80vh",
+                borderRadius: "8px",
+                boxShadow:
+                  "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              }}
               onClick={(e) => e.stopPropagation()}
               onError={(e) => {
                 (e.target as HTMLImageElement).src =
@@ -513,18 +813,28 @@ const NewSupplementPage = () => {
 
       {/* Scroll to top button */}
       <Box
-        className="fixed bottom-6 right-6 z-10"
-        sx={{ display: "flex", justifyContent: "flex-end" }}
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          zIndex: 10,
+        }}
       >
         <IconButton
-          color="primary"
           onClick={scrollToTop}
           sx={{
             backgroundColor: "white",
-            boxShadow: "0 3px 5px rgba(0,0,0,0.2)",
+            boxShadow:
+              "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+            width: 48,
+            height: 48,
             "&:hover": {
-              backgroundColor: "#f0f0f0",
+              backgroundColor: "#f9fafb",
+              transform: "translateY(-2px)",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
             },
+            transition: "all 0.2s ease",
           }}
         >
           <KeyboardArrowUp />

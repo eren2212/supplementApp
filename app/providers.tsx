@@ -1,14 +1,15 @@
 "use client";
 
-import React from "react";
-import { SettingsProvider } from "./contexts/SettingsContext";
+import { useEffect } from "react";
+import { useSettingsStore } from "@/app/store/settings-store";
 
-interface ProvidersProps {
-  children: React.ReactNode;
+export default function Providers({ children }: { children: React.ReactNode }) {
+  const { fetchSettings } = useSettingsStore();
+
+  // Uygulama ilk yüklendiğinde site ayarlarını getir
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  return <>{children}</>;
 }
-
-const Providers = ({ children }: ProvidersProps) => {
-  return <SettingsProvider>{children}</SettingsProvider>;
-};
-
-export default Providers;

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
-import prisma from "@/libs/prismadb";
 
 export async function middleware(request: NextRequest) {
   // Admin sayfalarını ve API'leri kontrol etmeye gerek yok, bunlar zaten auth tarafından korunuyor
@@ -32,30 +31,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  try {
-    // Site ayarlarını kontrol et
-    const settings = await prisma.siteSettings.findFirst();
-
-    // Bakım modu aktif değilse, normal erişime izin ver
-    if (!settings || !settings.maintenanceMode) {
-      return NextResponse.next();
-    }
-
-    // Bakım modu aktifse, kullanıcının yetkilendirmesini kontrol et
-    const session = await auth();
-
-    // Admin ise erişime izin ver
-    if (session?.user?.role === "ADMIN") {
-      return NextResponse.next();
-    }
-
-    // Admin değilse, bakım modu sayfasına yönlendir
-    return NextResponse.redirect(new URL("/maintenance", request.url));
-  } catch (error) {
-    console.error("Middleware error:", error);
-    // Hata durumunda normal erişime izin ver
-    return NextResponse.next();
-  }
+  // Bakım modu kaldırıldı - Prisma Edge Runtime hatası nedeniyle
+  return NextResponse.next();
 }
 
 // Bu middleware'in çalışacağı yolları belirt

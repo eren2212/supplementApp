@@ -22,26 +22,17 @@ const defaultSettings = {
   taxRate: 18,
 };
 
-// GET handler - Ayarları getir (herkese açık)
-export async function GET(request: NextRequest) {
+// GET /api/settings - Retrieve all site settings
+export async function GET() {
   try {
-    // Ayarları veritabanından al
     const settings = await prisma.siteSettings.findFirst();
 
-    // Eğer ayarlar yoksa veya bakım modunda ve hassas bilgiler
-    if (!settings) {
-      return NextResponse.json(defaultSettings);
-    }
-
-    // Hassas ayarları filtrele (bakım modu gibi)
-    const { maintenanceMode, ...publicSettings } = settings;
-
-    return NextResponse.json(publicSettings);
+    return NextResponse.json(settings || {}, { status: 200 });
   } catch (error) {
-    console.error("Ayarlar alınırken hata oluştu:", error);
+    console.error("API Error:", error);
     return NextResponse.json(
-      defaultSettings,
-      { status: 200 } // Hata durumunda varsayılan ayarları dön ama hata olarak değil
+      { error: "Ayarlar alınırken bir hata oluştu" },
+      { status: 500 }
     );
   }
 }

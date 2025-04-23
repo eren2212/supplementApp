@@ -119,34 +119,30 @@ export default function SupplementsPage() {
       <h1 className="text-3xl font-bold mb-8">Takviyeler</h1>
 
       {/* Kategori Filtreleme */}
-      <div className="flex gap-4 mb-8 overflow-x-auto pb-4">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+      <div className="flex flex-wrap justify-center gap-4 mb-8 overflow-x-auto pb-4">
+        <button
           onClick={() => setSelectedCategory("ALL")}
-          className={`px-4 py-2 rounded-full cursor-pointer ${
+          className={`px-6 py-3 rounded-full text-base font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
             selectedCategory === "ALL"
               ? "bg-blue-600 text-white"
-              : "bg-gray-200 text-gray-700"
+              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
           }`}
         >
           Tümü
-        </motion.button>
+        </button>
 
         {Object.values(Category).map((category) => (
-          <motion.button
+          <button
             key={category}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedCategory(category)}
-            className={`px-4 py-2 cursor-pointer rounded-full ${
+            className={`px-6 py-3 rounded-full text-base font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
               selectedCategory === category
                 ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700"
+                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
             }`}
           >
             {getCategoryName(category)}
-          </motion.button>
+          </button>
         ))}
       </div>
 

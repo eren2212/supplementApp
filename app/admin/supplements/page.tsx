@@ -214,6 +214,20 @@ const SupplementsPage = () => {
     setSortBy(property, newDirection);
   };
 
+  // Kategori adı çevirme fonksiyonu
+  const getCategoryName = (category: string): string => {
+    const categoryNames: Record<string, string> = {
+      BRAIN: "Beyin Sağlığı",
+      WOMEN_HEALTH: "Kadın Sağlığı",
+      MENS_HEALTH: "Erkek Sağlığı",
+      HEART: "Kalp Sağlığı",
+      SLEEP: "Uyku Düzeni",
+      ENERGY: "Enerji",
+    };
+
+    return categoryNames[category] || category.replace("_", " ");
+  };
+
   // Prepare data for category distribution chart
   const getCategoryData = () => {
     const categoryCounts: Record<string, number> = {};
@@ -222,7 +236,7 @@ const SupplementsPage = () => {
     });
 
     return Object.entries(categoryCounts).map(([category, count]) => ({
-      name: category.replace("_", " "),
+      name: getCategoryName(category),
       value: count,
     }));
   };
@@ -394,7 +408,7 @@ const SupplementsPage = () => {
                 <MenuItem value="all">Tümü</MenuItem>
                 {categories.map((category) => (
                   <MenuItem key={category} value={category}>
-                    {category.replace("_", " ")}
+                    {getCategoryName(category)}
                   </MenuItem>
                 ))}
               </Select>
@@ -747,7 +761,7 @@ const SupplementsPage = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={supplement.category.replace("_", " ")}
+                              label={getCategoryName(supplement.category)}
                               size="small"
                               sx={{
                                 bgcolor: `${

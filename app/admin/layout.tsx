@@ -195,12 +195,7 @@ const mainNavItems = [
     path: "/admin/supplements",
     exact: false,
   },
-  {
-    name: "Müşteriler",
-    icon: <People />,
-    path: "/admin/customers",
-    exact: false,
-  },
+
   {
     name: "Siparişler",
     icon: <ShoppingCart />,

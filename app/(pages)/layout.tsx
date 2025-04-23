@@ -6,7 +6,7 @@ import Container from "../components/container/Container";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import LayoutClient from "../components/auth/LayoutClient";
-
+import Providers from "../providers";
 import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
@@ -38,15 +38,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${lora.className} antialiased`}>
         <SessionProvider>
-          <Header />
-          <main>
-            <Container>
-              <LayoutClient>{children}</LayoutClient>
-            </Container>
-          </main>
-          <Footer />
-          <Toaster position="top-right" reverseOrder={false} />{" "}
-          {/* ✅ Toast en alta alındı */}
+          <Providers>
+            <Header />
+            <main>
+              <Container>
+                <LayoutClient>{children}</LayoutClient>
+              </Container>
+            </main>
+            <Footer />
+            <Toaster position="top-right" reverseOrder={false} />
+          </Providers>
         </SessionProvider>
       </body>
     </html>

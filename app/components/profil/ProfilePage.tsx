@@ -30,6 +30,7 @@ import {
   Badge,
   Tabs,
   Tab,
+  InputAdornment,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -191,6 +192,7 @@ interface EditableFieldProps {
   onEdit: (value: string) => Promise<void>;
   editable?: boolean;
   icon?: React.ReactNode;
+  type?: "text" | "phone" | "email" | "address";
 }
 
 const EditableField: React.FC<EditableFieldProps> = ({
@@ -199,20 +201,33 @@ const EditableField: React.FC<EditableFieldProps> = ({
   onEdit,
   editable = true,
   icon,
+  type = "text",
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [fieldValue, setFieldValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setFieldValue(value);
+  }, [value]);
+
   const handleSave = async () => {
     setIsLoading(true);
     setFieldError(null);
     try {
+      // Telefon numarası doğrulama
+      if (type === "phone") {
+        const cleaned = fieldValue.replace(/\D/g, "");
+        if (cleaned && (cleaned.length < 10 || cleaned.length > 11)) {
+          setFieldError("Geçerli bir telefon numarası giriniz");
+          setIsLoading(false);
+          return;
+        }
+      }
+
       await onEdit(fieldValue);
       setIsEditing(false);
-
-      // Aktivite kaydı ekleme
     } catch (error: any) {
       console.error("Error saving field:", error);
       setFieldError(error.message || "Alan güncellenirken bir hata oluştu.");
@@ -228,17 +243,30 @@ const EditableField: React.FC<EditableFieldProps> = ({
       )}
       {isEditing ? (
         <>
-          <TextField
-            size="small"
-            value={fieldValue}
-            onChange={(e) => setFieldValue(e.target.value)}
-            fullWidth
-            variant="outlined"
-            disabled={isLoading}
-            error={!!fieldError}
-            helperText={fieldError}
-            sx={{ flexGrow: 1 }}
-          />
+          {type === "phone" ? (
+            <PhoneInput
+              value={fieldValue}
+              onChange={setFieldValue}
+              error={fieldError || undefined}
+            />
+          ) : (
+            <TextField
+              size="small"
+              value={fieldValue}
+              onChange={(e) => setFieldValue(e.target.value)}
+              fullWidth
+              variant="outlined"
+              disabled={isLoading}
+              error={!!fieldError}
+              helperText={fieldError}
+              sx={{
+                flexGrow: 1,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                },
+              }}
+            />
+          )}
           <Button
             onClick={handleSave}
             size="small"
@@ -290,7 +318,9 @@ const EditableField: React.FC<EditableFieldProps> = ({
                   : theme.palette.text.secondary,
               }}
             >
-              {value || "Belirtilmemiş"}
+              {type === "phone" && value
+                ? formatPhoneNumber(value)
+                : value || "Belirtilmemiş"}
             </Typography>
           </Box>
           {editable && (
@@ -399,6 +429,75 @@ const PasswordDialog = ({
   );
 };
 
+// Telefon numarası formatlama fonksiyonu
+const formatPhoneNumber = (phone: string) => {
+  if (!phone) return "";
+
+  // Sadece rakamları al
+  const cleaned = phone.replace(/\D/g, "");
+
+  // Eğer 10 haneden az ise (başında 0 olmadan), başına 0 ekle
+  const tenDigit =
+    cleaned.length === 10
+      ? cleaned
+      : cleaned.length > 10
+      ? cleaned.substring(cleaned.length - 10)
+      : "0".repeat(10 - cleaned.length) + cleaned;
+
+  // 0544 337 66 15 formatında düzenle
+  const formatted = `${tenDigit.slice(0, 4)} ${tenDigit.slice(
+    4,
+    7
+  )} ${tenDigit.slice(7, 9)} ${tenDigit.slice(9)}`;
+
+  return formatted;
+};
+
+// PhoneInput bileşeni
+const PhoneInput: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}> = ({ value, onChange, error }) => {
+  const [formattedValue, setFormattedValue] = useState(
+    formatPhoneNumber(value)
+  );
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Girilen değeri formatla
+    setFormattedValue(input);
+
+    // onChange'e sadece rakamları gönder
+    const cleaned = input.replace(/\D/g, "");
+    onChange(cleaned);
+  };
+
+  return (
+    <TextField
+      label="Telefon Numarası"
+      value={formattedValue}
+      onChange={handleChange}
+      fullWidth
+      placeholder="0544 337 66 15"
+      error={!!error}
+      helperText={error || "Örnek: 0544 337 66 15"}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <PhoneIcon color="primary" />
+          </InputAdornment>
+        ),
+      }}
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          borderRadius: "12px",
+        },
+      }}
+    />
+  );
+};
+
 export default function ProfilePage() {
   const { data: session, status, update } = useSession();
   const theme = useTheme();
@@ -483,9 +582,9 @@ export default function ProfilePage() {
     setProfileUpdateError(null);
     try {
       // Telefon numarası için özel doğrulama
-      if (field === "phone" && value && !/^\d{10,15}$/.test(value)) {
+      if (field === "phone" && value && !/^\d{10,11}$/.test(value)) {
         setProfileUpdateError(
-          "Telefon numarası 10-15 hane arasında olmalıdır."
+          "Telefon numarası 10-11 hane arasında olmalıdır."
         );
         toast.error("Geçersiz telefon numarası");
         return;
@@ -685,7 +784,7 @@ export default function ProfilePage() {
                     mb: { xs: 2, sm: 0 },
                   }}
                 >
-                  Profilim
+                  Hesabım
                 </Typography>
                 <Box display="flex" gap={1}>
                   <Chip
@@ -708,17 +807,27 @@ export default function ProfilePage() {
                   "& .MuiTabs-indicator": {
                     backgroundColor: themeColors.primary,
                     height: 3,
+                    borderRadius: "3px 3px 0 0",
+                  },
+                  "& .MuiTab-root": {
+                    minHeight: 56,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                    opacity: 0.7,
+                    "&.Mui-selected": {
+                      opacity: 1,
+                      color: themeColors.primary,
+                    },
                   },
                 }}
               >
                 <Tab
-                  label="Genel Bilgiler"
+                  label="Bilgilerim"
                   icon={<PersonIcon />}
                   iconPosition="start"
                   sx={{
-                    fontWeight: 600,
+                    borderRadius: "12px 12px 0 0",
                     textTransform: "none",
-                    minHeight: 48,
                   }}
                 />
                 <Tab
@@ -726,9 +835,8 @@ export default function ProfilePage() {
                   icon={<HistoryIcon />}
                   iconPosition="start"
                   sx={{
-                    fontWeight: 600,
+                    borderRadius: "12px 12px 0 0",
                     textTransform: "none",
-                    minHeight: 48,
                   }}
                 />
                 <Tab
@@ -736,9 +844,8 @@ export default function ProfilePage() {
                   icon={<LockIcon />}
                   iconPosition="start"
                   sx={{
-                    fontWeight: 600,
+                    borderRadius: "12px 12px 0 0",
                     textTransform: "none",
-                    minHeight: 48,
                   }}
                   disabled={isOAuthUser}
                 />
@@ -752,9 +859,14 @@ export default function ProfilePage() {
                       flexDirection="column"
                       alignItems="center"
                       textAlign="center"
+                      component={Card}
                       sx={{
                         position: "sticky",
                         top: 20,
+                        p: 4,
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                        background: "linear-gradient(145deg, white, #f9f9ff)",
                       }}
                     >
                       <Badge
@@ -772,6 +884,8 @@ export default function ProfilePage() {
                               "&:hover": {
                                 backgroundColor: themeColors.secondary,
                               },
+                              width: 36,
+                              height: 36,
                             }}
                           >
                             <EditIcon fontSize="small" />
@@ -780,73 +894,84 @@ export default function ProfilePage() {
                       >
                         <Avatar
                           sx={{
-                            width: 120,
-                            height: 120,
+                            width: 140,
+                            height: 140,
                             mb: 3,
-                            objectFit: "cover",
-                            border: `3px solid ${themeColors.primary}`,
+                            border: `4px solid white`,
+                            boxShadow: "0 8px 20px rgba(124, 58, 237, 0.15)",
                           }}
                           src={userData.image || "/default-avatar.png"}
                         />
                       </Badge>
-                      <Typography variant="h5" gutterBottom>
+                      <Typography variant="h5" gutterBottom fontWeight={700}>
                         {userData.name || "Adınız"}
                       </Typography>
                       <Typography
                         variant="body2"
                         color="textSecondary"
-                        sx={{ mb: 2 }}
+                        sx={{ mb: 3 }}
                       >
                         {userData.email}
                       </Typography>
 
-                      <Grid container spacing={2} sx={{ mt: 2, mb: 3 }}>
+                      <Grid container spacing={2} sx={{ mb: 4 }}>
                         <Grid item xs={6}>
-                          <StatCard>
+                          <Box
+                            sx={{
+                              p: 2,
+                              borderRadius: "16px",
+                              bgcolor: "rgba(124, 58, 237, 0.1)",
+                              color: themeColors.primary,
+                              textAlign: "center",
+                            }}
+                          >
                             <Typography
-                              variant="h6"
-                              sx={{
-                                color: themeColors.primary,
-                                fontWeight: 700,
-                              }}
+                              variant="h5"
+                              fontWeight={700}
+                              color="inherit"
                             >
                               {userData.ordersCount || 0}
                             </Typography>
-                            <Typography variant="body2" color="textSecondary">
-                              Sipariş
-                            </Typography>
-                          </StatCard>
+                            <Typography variant="body2">Sipariş</Typography>
+                          </Box>
                         </Grid>
                         <Grid item xs={6}>
-                          <StatCard>
+                          <Box
+                            sx={{
+                              p: 2,
+                              borderRadius: "16px",
+                              bgcolor: "rgba(124, 58, 237, 0.1)",
+                              color: themeColors.primary,
+                              textAlign: "center",
+                            }}
+                          >
                             <Typography
-                              variant="h6"
-                              sx={{
-                                color: themeColors.primary,
-                                fontWeight: 700,
-                              }}
+                              variant="h5"
+                              fontWeight={700}
+                              color="inherit"
                             >
                               {userData.reviewsCount || 0}
                             </Typography>
-                            <Typography variant="body2" color="textSecondary">
-                              Yorum
-                            </Typography>
-                          </StatCard>
+                            <Typography variant="body2">Yorum</Typography>
+                          </Box>
                         </Grid>
                       </Grid>
 
                       {!isOAuthUser && (
                         <Button
-                          variant="contained"
+                          variant="outlined"
                           startIcon={<LockIcon />}
                           onClick={() => setPasswordDialogOpen(true)}
                           sx={{
-                            backgroundColor: themeColors.primary,
-                            borderRadius: "8px",
+                            borderColor: themeColors.primary,
+                            color: themeColors.primary,
+                            borderRadius: "12px",
                             textTransform: "none",
                             width: "100%",
+                            py: 1.5,
                             "&:hover": {
-                              backgroundColor: themeColors.secondary,
+                              borderColor: themeColors.secondary,
+                              backgroundColor: "rgba(124, 58, 237, 0.05)",
                             },
                           }}
                         >
@@ -860,25 +985,37 @@ export default function ProfilePage() {
                     <Card
                       sx={{
                         mb: 4,
-                        borderLeft: `4px solid ${themeColors.primary}`,
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                        overflow: "hidden",
                       }}
                     >
-                      <CardContent>
+                      <Box
+                        sx={{
+                          p: 3,
+                          borderBottom: "1px solid",
+                          borderColor: "divider",
+                          bgcolor: "rgba(124, 58, 237, 0.03)",
+                        }}
+                      >
                         <Typography
                           variant="h6"
                           sx={{
-                            mb: 3,
                             display: "flex",
                             alignItems: "center",
-                            color: themeColors.primary,
+                            fontWeight: 600,
                           }}
                         >
-                          <PersonIcon sx={{ mr: 1 }} />
+                          <PersonIcon
+                            sx={{ mr: 1.5, color: themeColors.primary }}
+                          />
                           Kişisel Bilgiler
                         </Typography>
+                      </Box>
 
+                      <CardContent sx={{ p: 4 }}>
                         <EditableField
-                          label="Tam Ad"
+                          label="Ad Soyad"
                           value={userData.name}
                           onEdit={handleEditField("name")}
                           icon={<PersonIcon />}
@@ -890,6 +1027,7 @@ export default function ProfilePage() {
                           onEdit={handleEditField("email")}
                           editable={false}
                           icon={<EmailIcon />}
+                          type="email"
                         />
 
                         <EditableField
@@ -897,6 +1035,7 @@ export default function ProfilePage() {
                           value={userData.phone || ""}
                           onEdit={handleEditField("phone")}
                           icon={<PhoneIcon />}
+                          type="phone"
                         />
 
                         <EditableField
@@ -904,29 +1043,48 @@ export default function ProfilePage() {
                           value={userData.address || ""}
                           onEdit={handleEditField("address")}
                           icon={<LocationIcon />}
+                          type="address"
                         />
 
                         <Box
                           sx={{
                             display: "flex",
                             alignItems: "center",
-                            mt: 2,
-                            color: theme.palette.text.secondary,
+                            mt: 3,
+                            p: 2,
+                            borderRadius: "12px",
+                            bgcolor: "rgba(124, 58, 237, 0.05)",
                           }}
                         >
-                          <CalendarIcon fontSize="small" sx={{ mr: 1 }} />
-                          <Typography variant="body2">
-                            Üyelik tarihi:{" "}
-                            {dayjs(userData.joinDate).format("DD MMMM YYYY")}
-                          </Typography>
+                          <CalendarIcon
+                            sx={{ mr: 1.5, color: themeColors.primary }}
+                          />
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              Üyelik tarihi
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {dayjs(userData.joinDate).format("DD MMMM YYYY")}
+                            </Typography>
+                          </Box>
                         </Box>
                       </CardContent>
                     </Card>
 
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
-                        <Card>
-                          <CardContent>
+                        <Card
+                          sx={{
+                            height: "100%",
+                            borderRadius: "20px",
+                            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                            transition: "transform 0.2s",
+                            "&:hover": {
+                              transform: "translateY(-5px)",
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ p: 3 }}>
                             <Typography
                               variant="h6"
                               sx={{
@@ -934,38 +1092,57 @@ export default function ProfilePage() {
                                 display: "flex",
                                 alignItems: "center",
                                 color: themeColors.primary,
+                                fontWeight: 600,
                               }}
                             >
-                              <PaymentIcon sx={{ mr: 1 }} />
+                              <PaymentIcon sx={{ mr: 1.5 }} />
                               Ödeme Yöntemleri
                             </Typography>
-                            <Typography
-                              variant="body2"
-                              color="textSecondary"
-                              sx={{ mb: 2 }}
+
+                            <Box
+                              sx={{
+                                borderRadius: "10px",
+                                p: 2,
+                                bgcolor: "rgba(124, 58, 237, 0.05)",
+                                mb: 2,
+                              }}
                             >
-                              {userData.paymentMethods
-                                ? `${userData.paymentMethods} kayıtlı kart`
-                                : "Kayıtlı ödeme yöntemi bulunmamaktadır"}
-                            </Typography>
+                              <Typography variant="body1" fontWeight={500}>
+                                {userData.paymentMethods
+                                  ? `${userData.paymentMethods} kayıtlı kart`
+                                  : "Kayıtlı ödeme yönteminiz yok"}
+                              </Typography>
+                            </Box>
+
                             <Button
                               variant="outlined"
                               color="primary"
-                              size="small"
+                              fullWidth
                               sx={{
-                                borderRadius: "8px",
+                                borderRadius: "12px",
                                 textTransform: "none",
+                                py: 1.5,
                               }}
                             >
-                              Kart Ekle
+                              Ödeme Yöntemi Ekle
                             </Button>
                           </CardContent>
                         </Card>
                       </Grid>
 
                       <Grid item xs={12} md={6}>
-                        <Card>
-                          <CardContent>
+                        <Card
+                          sx={{
+                            height: "100%",
+                            borderRadius: "20px",
+                            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                            transition: "transform 0.2s",
+                            "&:hover": {
+                              transform: "translateY(-5px)",
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ p: 3 }}>
                             <Typography
                               variant="h6"
                               sx={{
@@ -973,37 +1150,45 @@ export default function ProfilePage() {
                                 display: "flex",
                                 alignItems: "center",
                                 color: themeColors.primary,
+                                fontWeight: 600,
                               }}
                             >
-                              <OrderIcon sx={{ mr: 1 }} />
-                              Son Sipariş
+                              <OrderIcon sx={{ mr: 1.5 }} />
+                              Son Siparişler
                             </Typography>
-                            {userData.lastOrderDate ? (
-                              <>
-                                <Typography
-                                  variant="body2"
-                                  color="textSecondary"
-                                  sx={{ mb: 1 }}
-                                >
+
+                            <Box
+                              sx={{
+                                borderRadius: "10px",
+                                p: 2,
+                                bgcolor: "rgba(124, 58, 237, 0.05)",
+                                mb: 2,
+                              }}
+                            >
+                              {userData.lastOrderDate ? (
+                                <Typography variant="body1" fontWeight={500}>
+                                  Son sipariş:{" "}
                                   {dayjs(userData.lastOrderDate).fromNow()}
                                 </Typography>
-                                <Button
-                                  variant="outlined"
-                                  color="primary"
-                                  size="small"
-                                  sx={{
-                                    borderRadius: "8px",
-                                    textTransform: "none",
-                                  }}
-                                >
-                                  Sipariş Geçmişi
-                                </Button>
-                              </>
-                            ) : (
-                              <Typography variant="body2" color="textSecondary">
-                                Henüz siparişiniz bulunmamaktadır
-                              </Typography>
-                            )}
+                              ) : (
+                                <Typography variant="body1" fontWeight={500}>
+                                  Henüz siparişiniz bulunmuyor
+                                </Typography>
+                              )}
+                            </Box>
+
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              fullWidth
+                              sx={{
+                                borderRadius: "12px",
+                                textTransform: "none",
+                                py: 1.5,
+                              }}
+                            >
+                              Tüm Siparişler
+                            </Button>
                           </CardContent>
                         </Card>
                       </Grid>
@@ -1015,25 +1200,38 @@ export default function ProfilePage() {
               {activeTab === 1 && <UserActivities />}
 
               {activeTab === 2 && !isOAuthUser && (
-                <Card>
-                  <CardContent>
+                <Card
+                  sx={{
+                    borderRadius: "20px",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 3,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      bgcolor: "rgba(124, 58, 237, 0.03)",
+                    }}
+                  >
                     <Typography
                       variant="h6"
                       sx={{
-                        mb: 3,
                         display: "flex",
                         alignItems: "center",
-                        color: themeColors.primary,
+                        fontWeight: 600,
                       }}
                     >
-                      <LockIcon sx={{ mr: 1 }} />
+                      <LockIcon sx={{ mr: 1.5, color: themeColors.primary }} />
                       Hesap Güvenliği
                     </Typography>
+                  </Box>
 
+                  <CardContent sx={{ p: 4 }}>
                     <Box
                       sx={{
                         backgroundColor: "rgba(124, 58, 237, 0.05)",
-                        borderRadius: 2,
+                        borderRadius: "16px",
                         p: 3,
                         mb: 3,
                       }}
@@ -1043,8 +1241,11 @@ export default function ProfilePage() {
                         sx={{
                           fontWeight: 600,
                           mb: 1,
+                          display: "flex",
+                          alignItems: "center",
                         }}
                       >
+                        <LockIcon sx={{ mr: 1, fontSize: "1.2rem" }} />
                         Şifre Değiştir
                       </Typography>
                       <Typography
@@ -1057,12 +1258,13 @@ export default function ProfilePage() {
                       </Typography>
                       <Button
                         variant="contained"
-                        startIcon={<LockIcon />}
                         onClick={() => setPasswordDialogOpen(true)}
+                        fullWidth
                         sx={{
                           backgroundColor: themeColors.primary,
-                          borderRadius: "8px",
+                          borderRadius: "12px",
                           textTransform: "none",
+                          py: 1.5,
                           "&:hover": {
                             backgroundColor: themeColors.secondary,
                           },
