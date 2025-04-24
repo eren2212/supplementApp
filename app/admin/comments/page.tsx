@@ -99,9 +99,27 @@ const CommentManagementPage = () => {
       }
 
       const data = await response.json();
-      setComments(data);
+
+      // Ensure each comment has a valid reportCount property
+      const processedData = data.map((comment: any) => ({
+        ...comment,
+        // Ensure reportCount is a number, default to 0 if undefined
+        reportCount:
+          typeof comment.reportCount === "number" ? comment.reportCount : 0,
+      }));
+
+      console.log(
+        "Fetched comments with report counts:",
+        processedData.map((c: any) => ({
+          id: c.id,
+          content: c.content.substring(0, 20) + "...",
+          reportCount: c.reportCount,
+        }))
+      );
+
+      setComments(processedData);
       // Şimdilik sayfalama yok, gerçek uygulamada backend'den gelmeli
-      setTotalPages(Math.ceil(data.length / rowsPerPage));
+      setTotalPages(Math.ceil(processedData.length / rowsPerPage));
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu");
@@ -494,7 +512,11 @@ const CommentManagementPage = () => {
                                         comment.reportCount === 0
                                           ? "#D14343"
                                           : "inherit",
+                                      fontWeight: "bold",
                                     },
+                                    minWidth: "90px",
+                                    display: "flex",
+                                    justifyContent: "center",
                                   }}
                                 />
                               </div>

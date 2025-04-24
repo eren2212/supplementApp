@@ -143,7 +143,21 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(settings);
+    // Set a cookie to inform middleware about maintenance mode
+    const response = NextResponse.json(settings);
+
+    // Set cookie for maintenance mode to be used by middleware
+    response.cookies.set({
+      name: "maintenance_mode",
+      value: updatedSettings.maintenanceMode.toString(),
+      path: "/",
+      httpOnly: true, // Client-side JavaScript cannot access
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    });
+
+    return response;
   } catch (error) {
     console.error("Ayarlar güncellenirken hata oluştu:", error);
     return NextResponse.json(

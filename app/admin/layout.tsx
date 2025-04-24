@@ -203,12 +203,6 @@ const mainNavItems = [
     exact: false,
   },
   {
-    name: "Şikayetler",
-    icon: <NotificationsActive />,
-    path: "/admin/reports",
-    exact: false,
-  },
-  {
     name: "Siparişler",
     icon: <ShoppingCart />,
     path: "/admin/orders",

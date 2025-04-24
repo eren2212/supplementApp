@@ -3,15 +3,54 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
 export async function middleware(request: NextRequest) {
-  // Admin sayfalarını ve API'leri kontrol etmeye gerek yok, bunlar zaten auth tarafından korunuyor
+  const session = await auth();
+  const { pathname } = request.nextUrl;
+  const isLoggedIn = !!session?.user;
+
+  // Always allow access to maintenance check API and admin login page and related assets
   if (
-    request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/api/admin")
+    pathname === "/admin/login" ||
+    pathname.startsWith("/_next") ||
+    pathname.includes("favicon.ico") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/api/auth") ||
+    pathname === "/api/maintenance-check"
   ) {
     return NextResponse.next();
   }
 
-  // Auth sayfalarına erişime her zaman izin ver (login sayfası vb.)
+  // For maintenance mode check, we need to use cookies instead of direct prisma call
+  // because prisma cannot run in edge runtime (middleware)
+  const maintenanceCookie = request.cookies.get("maintenance_mode");
+  const isMaintenanceMode = maintenanceCookie?.value === "true";
+
+  // If maintenance mode is active and user is not admin, redirect to maintenance page
+  // except for admin login page and api routes needed for login
+  if (
+    isMaintenanceMode &&
+    (!isLoggedIn || session?.user?.role !== "ADMIN") &&
+    pathname !== "/maintenance"
+  ) {
+    return NextResponse.redirect(new URL("/maintenance", request.url));
+  }
+
+  // Admin and doctor page protection
+  if (
+    (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) &&
+    (!isLoggedIn || session?.user?.role !== "ADMIN") &&
+    pathname !== "/admin/login"
+  ) {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
+  }
+
+  if (
+    pathname.startsWith("/doctor") &&
+    (!isLoggedIn || session?.user?.role !== "DOCTOR")
+  ) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Auth pages access
   if (
     request.nextUrl.pathname.startsWith("/auth") ||
     request.nextUrl.pathname.startsWith("/login") ||
@@ -20,7 +59,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // API için genel ayarlar ve asset'lere erişime her zaman izin ver
+  // API and asset access
   if (
     request.nextUrl.pathname.startsWith("/api/settings") ||
     request.nextUrl.pathname.startsWith("/_next") ||
@@ -31,7 +70,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Bakım modu kaldırıldı - Prisma Edge Runtime hatası nedeniyle
   return NextResponse.next();
 }
 

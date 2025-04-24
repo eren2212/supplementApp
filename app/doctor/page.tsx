@@ -36,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import { useDoctorAdviceStore, Advice } from "@/app/store/doctorAdviceStore";
 import Link from "next/link";
+import axios from "axios";
 
 const DoctorDashboard = () => {
   const theme = useTheme();
@@ -54,31 +55,45 @@ const DoctorDashboard = () => {
     draftAdvices: 0,
   });
 
-  // Not: Gerçek uygulamada doktor kimliği session'dan alınacak
-  // Şimdilik sabit bir ID kullanıyoruz
-  const currentDoctorId = 1; // Dr. Ahmet Yılmaz ID'si
-
   useEffect(() => {
-    // Kullanıcı doktor ID'sini ayarla
-    setUserDoctorId(currentDoctorId);
+    // Authenticate user and redirect if not a doctor
+    const authenticateUser = async () => {
+      try {
+        const response = await axios.get("/api/auth/session");
+        if (!response.data?.user || response.data?.user?.role !== "DOCTOR") {
+          // Redirect to home page if not authenticated or not a doctor
+          window.location.href = "/";
+          return;
+        }
 
-    // Doktorun tavsiyelerini getir
-    const loadDoctorAdvices = async () => {
-      const advices = await fetchDoctorAdvices(currentDoctorId);
-      setDoctorAdvices(advices);
+        // Continue with doctor-specific logic
+        // Get the current doctor ID from the session
+        const doctorId = response.data.user.id;
 
-      // İstatistikleri güncelle
-      setStats({
-        totalAdvices: advices.length,
-        totalLikes: advices.reduce((sum, advice) => sum + advice.likes, 0),
-        publishedAdvices: advices.filter((a) => a.status === "published")
-          .length,
-        draftAdvices: advices.filter((a) => a.status === "draft").length,
-      });
+        // Kullanıcı doktor ID'sini ayarla
+        setUserDoctorId(doctorId);
+
+        // Doktorun tavsiyelerini getir
+        const advices = await fetchDoctorAdvices(doctorId);
+        setDoctorAdvices(advices);
+
+        // İstatistikleri güncelle
+        setStats({
+          totalAdvices: advices.length,
+          totalLikes: advices.reduce((sum, advice) => sum + advice.likes, 0),
+          publishedAdvices: advices.filter((a) => a.status === "published")
+            .length,
+          draftAdvices: advices.filter((a) => a.status === "draft").length,
+        });
+      } catch (error) {
+        console.error("Authentication error:", error);
+        // Redirect to home page if there's any authentication error
+        window.location.href = "/";
+      }
     };
 
-    loadDoctorAdvices();
-  }, [fetchDoctorAdvices, setUserDoctorId, currentDoctorId]);
+    authenticateUser();
+  }, [fetchDoctorAdvices, setUserDoctorId]);
 
   const handleDeleteAdvice = async (adviceId: number) => {
     if (window.confirm("Bu tavsiyeyi silmek istediğinize emin misiniz?")) {

@@ -172,16 +172,26 @@ const AdminPage = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+        // Check if user is authenticated and is an admin
+        const response = await axios.get("/api/auth/session");
+        if (!response.data?.user || response.data?.user?.role !== "ADMIN") {
+          // Redirect to home page if not authenticated or not an admin
+          window.location.href = "/";
+          return;
+        }
+
         await fetchDashboardData();
 
         // Fetch additional data
-        const response = await axios.get("/api/admin/statistics");
-        if (response.data) {
-          setSalesData(response.data.salesData || []);
-          setCategoryData(response.data.categoryData || []);
+        const statsResponse = await axios.get("/api/admin/statistics");
+        if (statsResponse.data) {
+          setSalesData(statsResponse.data.salesData || []);
+          setCategoryData(statsResponse.data.categoryData || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+        // Redirect to home page if there's any authentication error
+        window.location.href = "/";
       } finally {
         setIsLoading(false);
       }

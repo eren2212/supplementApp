@@ -3,29 +3,69 @@ import prisma from "@/libs/prismadb";
 import { auth } from "@/auth";
 
 // GET all comments
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Get query parameters for pagination
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const skip = (page - 1) * limit;
+
+    // Get total count
+    const totalCount = await prisma.comment.count();
+
+    // Fetch comments with pagination
     const comments = await prisma.comment.findMany({
+      // skip,
+      // take: limit,
       include: {
         user: {
           select: {
+            id: true,
             name: true,
             image: true,
           },
         },
         supplement: {
           select: {
+            id: true,
             name: true,
           },
         },
-        reports: true,
+        reports: {
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    return NextResponse.json(comments);
+    // Transform the comments to ensure reportCount is accurate
+    const transformedComments = comments.map((comment) => {
+      // For admin panel, explicitly calculate reportCount as the number of reports
+      // This ensures it's always accurate and up-to-date
+      const calculatedReportCount = comment.reports?.length || 0;
+
+      // Use the calculated report count or the stored count, whichever is higher
+      // This ensures we don't miss any reports
+      const finalReportCount = Math.max(
+        calculatedReportCount,
+        comment.reportCount || 0
+      );
+
+      return {
+        ...comment,
+        reportCount: finalReportCount,
+        // Don't send the full reports array to the client to reduce payload size
+        reports: undefined,
+      };
+    });
+
+    return NextResponse.json(transformedComments);
   } catch (error) {
     console.error("Error fetching comments:", error);
     return NextResponse.json(

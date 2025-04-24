@@ -26,6 +26,7 @@ import {
   Tooltip,
   Fade,
   Avatar,
+  AlertTitle,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -45,6 +46,7 @@ import {
   Share as ShareIcon,
   ShoppingCart as ShoppingCartIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
+  AdminPanelSettings as AdminIcon,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import { useSettingsStore } from "@/app/store/settingsStore";
@@ -202,6 +204,27 @@ const SettingsPage = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {settings.maintenanceMode && (
+        <Alert
+          severity="warning"
+          variant="filled"
+          icon={<AdminIcon />}
+          sx={{ mb: 4, borderRadius: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => updateField("maintenanceMode", false)}
+            >
+              Bakım Modunu Kapat
+            </Button>
+          }
+        >
+          <AlertTitle>Bakım Modu Aktif</AlertTitle>
+          Şu anda siteniz bakım modunda. Normal kullanıcılar siteye erişemez.
+        </Alert>
+      )}
+
       <Box sx={{ mb: 4, display: "flex", alignItems: "center" }}>
         <IconButton
           sx={{ mr: 2 }}

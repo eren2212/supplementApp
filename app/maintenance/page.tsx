@@ -1,6 +1,6 @@
 "use client";
 
-import MaintenancePage from "@/app/components/MaintenancePage";
+import MaintenancePage from "../components/maintenance/MaintenancePage";
 
 export default function MaintenanceModePage() {
   return <MaintenancePage />;

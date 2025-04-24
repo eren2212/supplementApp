@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import MaintenanceCheck from "../MaintenanceCheck";
+import MaintenanceCheck from "@/app/components/maintenance/MaintenanceCheck";
 
 interface LayoutClientProps {
   children: React.ReactNode;

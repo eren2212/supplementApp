@@ -119,7 +119,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       // Admin ve doktor yetkilendirme kontrolleri
-
       if (pathname.startsWith("/doctor") && role !== "DOCTOR") {
         return Response.redirect(new URL("/", nextUrl));
       }
@@ -134,9 +133,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         pathname.startsWith(route)
       );
 
-      // Eğer giriş yapmamış biri korumalı bir sayfaya erişmeye çalışıyorsa login sayfasına yönlendir.
+      // Eğer giriş yapmamış biri korumalı bir sayfaya erişmeye çalışıyorsa ana sayfaya yönlendir
       if (isProtectedPage && !isLoggedIn) {
-        return Response.redirect(new URL("/login", nextUrl));
+        return Response.redirect(new URL("/", nextUrl));
       }
 
       return true; // **Giriş yapmamış kullanıcılar diğer sayfalara erişebilir!**

@@ -7,7 +7,7 @@ interface MaintenanceState {
   isMaintenanceMode: boolean;
   loading: boolean;
   error: string | null;
-  checkMaintenanceMode: () => Promise<void>;
+  checkMaintenanceMode: () => Promise<boolean>;
 }
 
 // Bakım modu kontrolü için zustand store oluştur
