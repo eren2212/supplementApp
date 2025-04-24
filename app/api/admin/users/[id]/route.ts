@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ message: "Yetkisiz erişim" }, { status: 403 });
     }
 
-    const userId = params.id;
+    const { id: userId } = await params;
 
     // Fetch user
     const user = await prisma.user.findUnique({
@@ -62,7 +62,7 @@ export async function PUT(
       return NextResponse.json({ message: "Yetkisiz erişim" }, { status: 403 });
     }
 
-    const userId = params.id;
+    const { id: userId } = await params;
     const body = await request.json();
     const { name, email, role, phone, address, password } = body;
 
@@ -144,7 +144,7 @@ export async function DELETE(
       return NextResponse.json({ message: "Yetkisiz erişim" }, { status: 403 });
     }
 
-    const userId = params.id;
+    const { id: userId } = await params;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -171,6 +171,16 @@ export async function DELETE(
         );
       }
     }
+
+    // First delete the user's activities to avoid relation constraint error
+    await prisma.activity.deleteMany({
+      where: { userId },
+    });
+
+    // Check and delete the user's comments
+    await prisma.comment.deleteMany({
+      where: { userId },
+    });
 
     // Delete the user
     await prisma.user.delete({

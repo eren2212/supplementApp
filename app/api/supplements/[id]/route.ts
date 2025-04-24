@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     // Get supplement ID from params
-    const id = params?.id;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -27,10 +27,12 @@ export async function GET(
           include: {
             user: {
               select: {
+                id: true,
                 name: true,
                 image: true,
               },
             },
+            reports: true,
           },
           orderBy: {
             createdAt: "desc",
@@ -46,7 +48,21 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(supplement);
+    // Process supplement data to include reportCount for UI
+    const processedSupplement = {
+      ...supplement,
+      comments: supplement.comments.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+        rating: comment.rating,
+        createdAt: comment.createdAt,
+        isHidden: comment.isHidden,
+        reportCount: comment.reportCount,
+        user: comment.user,
+      })),
+    };
+
+    return NextResponse.json(processedSupplement);
   } catch (error) {
     console.error("Error fetching supplement details:", error);
     return NextResponse.json(
@@ -72,7 +88,7 @@ export async function DELETE(
       );
     }
 
-    const id = params?.id;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -140,7 +156,7 @@ export async function PATCH(
       );
     }
 
-    const id = params?.id;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json(
         { error: "Supplement ID is required" },

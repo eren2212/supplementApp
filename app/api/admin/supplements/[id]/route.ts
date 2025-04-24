@@ -27,7 +27,7 @@ export async function GET(
       );
     }
 
-    const id = params.id;
+    const { id } = await params;
 
     // Fetch supplement with additional admin-specific data
     const supplement = await prisma.supplement.findUnique({
@@ -105,7 +105,7 @@ export async function PUT(
       );
     }
 
-    const id = params.id;
+    const { id } = await params;
     const body = await request.json();
     const {
       name,
@@ -200,7 +200,7 @@ export async function DELETE(
       );
     }
 
-    const id = params.id;
+    const { id } = await params;
 
     // Check if supplement exists
     const existingSupplement = await prisma.supplement.findUnique({

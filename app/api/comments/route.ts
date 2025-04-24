@@ -18,6 +18,7 @@ export async function GET() {
             name: true,
           },
         },
+        reports: true,
       },
       orderBy: {
         createdAt: "desc",

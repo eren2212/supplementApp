@@ -1,0 +1,283 @@
+"use client";
+
+import {
+  Box,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  Chip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  DialogActions,
+} from "@mui/material";
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { Email, Phone, VerifiedUser } from "@mui/icons-material";
+import type { Doctor } from "@/app/store/doctorAdviceStore";
+
+interface DoctorSectionProps {
+  doctors: Doctor[];
+}
+
+const DoctorSection = ({ doctors }: DoctorSectionProps) => {
+  const [openContact, setOpenContact] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [message, setMessage] = useState("");
+
+  const handleOpenContact = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setOpenContact(true);
+  };
+
+  const handleCloseContact = () => {
+    setOpenContact(false);
+    setMessage("");
+  };
+
+  const handleSubmitContact = () => {
+    // İletişim form gönderimi işlevi
+    console.log("Mesaj gönderildi:", { doctor: selectedDoctor, message });
+    setMessage("");
+    handleCloseContact();
+  };
+
+  if (doctors.length === 0) {
+    return (
+      <Box sx={{ textAlign: "center", py: 8 }}>
+        <Typography variant="h6" color="text.secondary">
+          Doktor listesi yüklenemedi.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Grid container spacing={4}>
+        {doctors.map((doctor, index) => (
+          <Grid item xs={12} md={6} key={doctor.id}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.1 }}
+            >
+              <Card
+                sx={{
+                  borderRadius: "16px",
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                  height: "100%",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                    boxShadow: "0 16px 40px rgba(0,0,0,0.1)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    height: "100%",
+                  }}
+                >
+                  {/* Doktor avatar alanı */}
+                  <Box
+                    sx={{
+                      width: { xs: "100%", sm: 180 },
+                      minHeight: { xs: 200, sm: "auto" },
+                      bgcolor: "primary.light",
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 2,
+                    }}
+                  >
+                    <Avatar
+                      src={doctor.image}
+                      alt={doctor.name}
+                      sx={{
+                        width: 120,
+                        height: 120,
+                        border: "4px solid white",
+                        boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        bottom: 10,
+                        right: 10,
+                        zIndex: 1,
+                      }}
+                    >
+                      <Chip
+                        size="small"
+                        icon={<VerifiedUser sx={{ fontSize: 14 }} />}
+                        label="Uzman"
+                        color="primary"
+                        sx={{
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          bgcolor: "white",
+                          color: "primary.main",
+                          boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Doktor bilgileri */}
+                  <CardContent
+                    sx={{
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      p: 3,
+                    }}
+                  >
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      color="primary.dark"
+                      gutterBottom
+                    >
+                      {doctor.name}
+                    </Typography>
+
+                    <Typography
+                      variant="subtitle1"
+                      color="text.primary"
+                      fontWeight={600}
+                      gutterBottom
+                    >
+                      {doctor.title}
+                    </Typography>
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      gutterBottom
+                      sx={{ mb: 2 }}
+                    >
+                      <strong>Uzmanlık:</strong> {doctor.specialty}
+                    </Typography>
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      paragraph
+                      sx={{ mb: 3, flexGrow: 1 }}
+                    >
+                      {doctor.bio}
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mt: "auto",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Phone
+                          fontSize="small"
+                          color="action"
+                          sx={{ opacity: 0.6 }}
+                        />
+                        <Email
+                          fontSize="small"
+                          color="action"
+                          sx={{ opacity: 0.6 }}
+                        />
+                      </Box>
+
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleOpenContact(doctor)}
+                        sx={{
+                          borderRadius: "30px",
+                          textTransform: "none",
+                          px: 3,
+                          boxShadow: "0 4px 14px rgba(33, 150, 243, 0.2)",
+                          "&:hover": {
+                            boxShadow: "0 6px 20px rgba(33, 150, 243, 0.3)",
+                          },
+                        }}
+                      >
+                        İletişime Geç
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Box>
+              </Card>
+            </motion.div>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* İletişim Modal */}
+      <Dialog
+        open={openContact}
+        onClose={handleCloseContact}
+        maxWidth="sm"
+        fullWidth
+      >
+        {selectedDoctor && (
+          <>
+            <DialogTitle>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Avatar src={selectedDoctor.image} alt={selectedDoctor.name} />
+                <Typography variant="h6" component="div">
+                  {selectedDoctor.name} ile İletişime Geç
+                </Typography>
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Typography variant="body2" paragraph>
+                {selectedDoctor.title} olan uzmanımıza sormak istediğiniz
+                soruları yazabilirsiniz.
+              </Typography>
+              <TextField
+                autoFocus
+                margin="dense"
+                id="message"
+                label="Mesajınız"
+                type="text"
+                fullWidth
+                multiline
+                rows={6}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                variant="outlined"
+                required
+              />
+            </DialogContent>
+            <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
+              <Button onClick={handleCloseContact} color="inherit">
+                İptal
+              </Button>
+              <Button
+                onClick={handleSubmitContact}
+                variant="contained"
+                disabled={!message.trim()}
+              >
+                Gönder
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+    </Box>
+  );
+};
+
+export default DoctorSection;

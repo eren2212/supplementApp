@@ -19,6 +19,7 @@ model User {
   createdAt      DateTime   @default(now())
   comments       Comment[]
   activities     Activity[] // Kullanıcıya ait aktiviteler
+  commentReports CommentReport[] // Kullanıcının yaptığı yoruml şikayetleri
 }
 
 model Activity {
@@ -55,6 +56,21 @@ model Comment {
   content      String
   rating       Int       @default(5)
   createdAt    DateTime  @default(now())
+  reportCount  Int       @default(0)
+  reports      CommentReport[]
+  isHidden     Boolean   @default(false)
+}
+
+model CommentReport {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId]) // Bir kullanıcı bir yorumu sadece bir kez şikayet edebilir
 }
 
 model BlogPost {

@@ -44,6 +44,7 @@ import {
   KeyboardArrowDown,
   KeyboardArrowUp,
   Security,
+  NotificationsActive,
 } from "@mui/icons-material";
 import "@/app/globals.css";
 import { useAdminStore } from "@/app/store/adminStore";
@@ -195,7 +196,18 @@ const mainNavItems = [
     path: "/admin/supplements",
     exact: false,
   },
-
+  {
+    name: "Yorumlar",
+    icon: <Mail />,
+    path: "/admin/comments",
+    exact: false,
+  },
+  {
+    name: "Şikayetler",
+    icon: <NotificationsActive />,
+    path: "/admin/reports",
+    exact: false,
+  },
   {
     name: "Siparişler",
     icon: <ShoppingCart />,

@@ -15,7 +15,10 @@ interface Comment {
   content: string;
   rating: number;
   createdAt: string;
+  isHidden?: boolean;
+  reportCount: number;
   user: {
+    id?: string;
     name: string;
     image: string | null;
   };
@@ -126,6 +129,29 @@ export default function SupplementDetailsPage() {
       0
     );
     return totalRating / supplement.comments.length;
+  };
+
+  const handleReportComment = async (commentId: string) => {
+    try {
+      const response = await fetch(`/api/comments/${commentId}/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: "Uygunsuz içerik" }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Yorum başarıyla şikayet edildi.");
+      } else {
+        toast.error(data.error || "Bir hata oluştu.");
+      }
+    } catch (error) {
+      toast.error("Şikayet gönderilirken bir hata oluştu.");
+      console.error("Error reporting comment:", error);
+    }
   };
 
   if (loading) {
@@ -375,67 +401,122 @@ export default function SupplementDetailsPage() {
         {/* Comments List */}
         {supplement.comments && supplement.comments.length > 0 ? (
           <div className="space-y-4 mt-6">
-            {supplement.comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="bg-white p-5 rounded-lg shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-center mb-3">
-                  <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden relative mr-4">
-                    {comment.user?.image ? (
-                      <Image
-                        src={comment.user.image}
-                        alt={comment.user.name}
-                        fill
-                        className="object-cover"
-                        sizes="48px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-bold text-lg">
-                        {comment.user?.name?.charAt(0)?.toUpperCase() || "?"}
+            {supplement.comments
+              .filter((comment) => !comment.isHidden)
+              .map((comment) => (
+                <div
+                  key={comment.id}
+                  className="bg-white p-5 rounded-lg shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-center mb-3">
+                    <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden relative mr-4">
+                      {comment.user?.image ? (
+                        <Image
+                          src={comment.user.image}
+                          alt={comment.user.name}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-bold text-lg">
+                          {comment.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="font-semibold text-lg">
+                          {comment.user?.name || "Misafir"}
+                        </h4>
+                        <span className="text-xs text-gray-500">
+                          {new Date(comment.createdAt).toLocaleDateString(
+                            "tr-TR",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <svg
+                            key={i}
+                            xmlns="http://www.w3.org/2000/svg"
+                            className={`h-4 w-4 ${
+                              i < comment.rating
+                                ? "text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 mt-2">{comment.content}</p>
+
+                  <div className="mt-3 flex justify-between items-center">
+                    {comment.reportCount > 0 && (
+                      <div className="text-xs px-2 py-1 rounded-full flex items-center gap-1 bg-gray-100">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                        <span
+                          className={
+                            comment.reportCount >= 2
+                              ? "text-red-500"
+                              : "text-gray-500"
+                          }
+                        >
+                          {comment.reportCount} Şikayet
+                        </span>
                       </div>
                     )}
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-center mb-1">
-                      <h4 className="font-semibold text-lg">
-                        {comment.user?.name || "Misafir"}
-                      </h4>
-                      <span className="text-xs text-gray-500">
-                        {new Date(comment.createdAt).toLocaleDateString(
-                          "tr-TR",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex">
-                      {Array.from({ length: 5 }).map((_, i) => (
+
+                    {session?.user && comment.user?.id !== session.user.id && (
+                      <button
+                        onClick={() => handleReportComment(comment.id)}
+                        className="text-xs text-gray-500 hover:text-red-500 flex items-center ml-auto"
+                      >
                         <svg
-                          key={i}
                           xmlns="http://www.w3.org/2000/svg"
-                          className={`h-4 w-4 ${
-                            i < comment.rating
-                              ? "text-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
                         </svg>
-                      ))}
-                    </div>
+                        Şikayet Et
+                      </button>
+                    )}
                   </div>
                 </div>
-                <p className="text-gray-700 mt-2">{comment.content}</p>
-              </div>
-            ))}
+              ))}
           </div>
         ) : (
           <div className="bg-white p-6 rounded-lg shadow text-center mt-6">

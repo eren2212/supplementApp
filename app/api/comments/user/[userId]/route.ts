@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const userId = params.userId;
+    const { userId } = await params;
 
     // Get the count of comments for the user
     const count = await prisma.comment.count({

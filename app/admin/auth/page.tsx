@@ -19,24 +19,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
   CircularProgress,
   Alert,
-  Stack,
   Snackbar,
   Tooltip,
   Pagination,
-  SelectChangeEvent,
+  Popover,
 } from "@mui/material";
 import {
-  Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  PersonAdd as PersonAddIcon,
   ArrowBack as ArrowBackIcon,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
@@ -54,23 +47,11 @@ interface User {
   image?: string | null;
 }
 
-// Initial state for a new user
-const initialUserState: Partial<User> = {
-  name: "",
-  email: "",
-  role: "CUSTOMER",
-  address: "",
-  phone: "",
-};
-
 const UserManagementPage = () => {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editUser, setEditUser] = useState<Partial<User> | null>(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [isAddMode, setIsAddMode] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -83,6 +64,17 @@ const UserManagementPage = () => {
     userId: "",
   });
   const rowsPerPage = 10;
+  const [rolePopover, setRolePopover] = useState<{
+    open: boolean;
+    anchorEl: HTMLElement | null;
+    userId: string;
+    currentRole: Role;
+  }>({
+    open: false,
+    anchorEl: null,
+    userId: "",
+    currentRole: "CUSTOMER",
+  });
 
   // Fetch users data
   const fetchUsers = async () => {
@@ -109,79 +101,6 @@ const UserManagementPage = () => {
   useEffect(() => {
     fetchUsers();
   }, [page]);
-
-  // Handle dialog open for edit
-  const handleEditClick = (user: User) => {
-    setEditUser(user);
-    setIsAddMode(false);
-    setOpenDialog(true);
-  };
-
-  // Handle dialog open for add
-  const handleAddClick = () => {
-    setEditUser({ ...initialUserState });
-    setIsAddMode(true);
-    setOpenDialog(true);
-  };
-
-  // Handle dialog close
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditUser(null);
-  };
-
-  // Handle form input changes
-  const handleInputChange = (
-    e:
-      | React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
-      | SelectChangeEvent
-  ) => {
-    const { name, value } = e.target;
-    if (name) {
-      setEditUser((prev) => (prev ? { ...prev, [name]: value } : null));
-    }
-  };
-
-  // Handle save user (create or update)
-  const handleSaveUser = async () => {
-    try {
-      if (!editUser) return;
-
-      const url = isAddMode
-        ? "/api/admin/users"
-        : `/api/admin/users/${editUser.id}`;
-
-      const method = isAddMode ? "POST" : "PUT";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(editUser),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "İşlem başarısız oldu");
-      }
-
-      setSnackbar({
-        open: true,
-        message: isAddMode ? "Kullanıcı eklendi" : "Kullanıcı güncellendi",
-        severity: "success",
-      });
-
-      fetchUsers();
-      handleCloseDialog();
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: err instanceof Error ? err.message : "Bir hata oluştu",
-        severity: "error",
-      });
-    }
-  };
 
   // Handle delete user
   const handleDeleteUser = async (userId: string) => {
@@ -235,6 +154,71 @@ const UserManagementPage = () => {
     setPage(value);
   };
 
+  // Handle role click to open popover
+  const handleRoleClick = (
+    event: React.MouseEvent<HTMLDivElement>,
+    userId: string,
+    currentRole: Role
+  ) => {
+    setRolePopover({
+      open: true,
+      anchorEl: event.currentTarget,
+      userId,
+      currentRole,
+    });
+  };
+
+  // Handle role popover close
+  const handleRolePopoverClose = () => {
+    setRolePopover({
+      ...rolePopover,
+      open: false,
+      anchorEl: null,
+    });
+  };
+
+  // Handle role change
+  const handleRoleChange = async (newRole: Role) => {
+    try {
+      const response = await fetch(`/api/admin/users/${rolePopover.userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.message || "Rol değiştirme işlemi başarısız oldu"
+        );
+      }
+
+      // Update the users list with the new role
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === rolePopover.userId ? { ...user, role: newRole } : user
+        )
+      );
+
+      setSnackbar({
+        open: true,
+        message: "Kullanıcı rolü güncellendi",
+        severity: "success",
+      });
+
+      handleRolePopoverClose();
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Bir hata oluştu",
+        severity: "error",
+      });
+      handleRolePopoverClose();
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 4, display: "flex", alignItems: "center" }}>
@@ -251,21 +235,13 @@ const UserManagementPage = () => {
       </Box>
 
       <Paper sx={{ p: 2, mb: 4 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
           <Button
             variant="contained"
             startIcon={<RefreshIcon />}
             onClick={() => fetchUsers()}
           >
             Yenile
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PersonAddIcon />}
-            onClick={handleAddClick}
-          >
-            Yeni Kullanıcı
           </Button>
         </Box>
 
@@ -312,21 +288,16 @@ const UserManagementPage = () => {
                                 | "success"
                             }
                             size="small"
+                            onClick={(e) =>
+                              handleRoleClick(e, user.id, user.role)
+                            }
+                            sx={{ cursor: "pointer" }}
                           />
                         </TableCell>
                         <TableCell>
                           {new Date(user.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell align="right">
-                          <Tooltip title="Düzenle">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditClick(user)}
-                              aria-label="Düzenle"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           <Tooltip title="Sil">
                             <IconButton
                               size="small"
@@ -368,88 +339,6 @@ const UserManagementPage = () => {
         )}
       </Paper>
 
-      {/* Edit/Add User Dialog */}
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {isAddMode ? "Yeni Kullanıcı Ekle" : "Kullanıcıyı Düzenle"}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField
-              fullWidth
-              label="İsim"
-              name="name"
-              value={editUser?.name || ""}
-              onChange={handleInputChange}
-              variant="outlined"
-            />
-            <TextField
-              fullWidth
-              label="E-posta"
-              name="email"
-              type="email"
-              value={editUser?.email || ""}
-              onChange={handleInputChange}
-              variant="outlined"
-            />
-            <TextField
-              fullWidth
-              label="Telefon"
-              name="phone"
-              value={editUser?.phone || ""}
-              onChange={handleInputChange}
-              variant="outlined"
-            />
-            <TextField
-              fullWidth
-              label="Adres"
-              name="address"
-              value={editUser?.address || ""}
-              onChange={handleInputChange}
-              multiline
-              rows={2}
-              variant="outlined"
-            />
-            <FormControl fullWidth>
-              <InputLabel>Rol</InputLabel>
-              <Select
-                name="role"
-                value={editUser?.role || "CUSTOMER"}
-                onChange={handleInputChange}
-                label="Rol"
-              >
-                <MenuItem value="CUSTOMER">Müşteri</MenuItem>
-                <MenuItem value="DOCTOR">Doktor</MenuItem>
-                <MenuItem value="ADMIN">Admin</MenuItem>
-              </Select>
-            </FormControl>
-            {isAddMode && (
-              <TextField
-                fullWidth
-                label="Şifre"
-                name="password"
-                type="password"
-                onChange={handleInputChange}
-                variant="outlined"
-              />
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="inherit">
-            İptal
-          </Button>
-          <Button onClick={handleSaveUser} variant="contained" color="primary">
-            Kaydet
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Confirm Delete Dialog */}
       <Dialog
         open={confirmDeleteDialog.open}
@@ -476,6 +365,60 @@ const UserManagementPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Role Popover */}
+      <Popover
+        open={rolePopover.open}
+        anchorEl={rolePopover.anchorEl}
+        onClose={handleRolePopoverClose}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "center",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "center",
+        }}
+      >
+        <Box sx={{ width: 200 }}>
+          <MenuItem
+            onClick={() => handleRoleChange("CUSTOMER")}
+            sx={{
+              bgcolor:
+                rolePopover.currentRole === "CUSTOMER"
+                  ? "action.selected"
+                  : "inherit",
+              py: 1.5,
+            }}
+          >
+            <Typography>Müşteri</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => handleRoleChange("DOCTOR")}
+            sx={{
+              bgcolor:
+                rolePopover.currentRole === "DOCTOR"
+                  ? "action.selected"
+                  : "inherit",
+              py: 1.5,
+            }}
+          >
+            <Typography>Doktor</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => handleRoleChange("ADMIN")}
+            sx={{
+              bgcolor:
+                rolePopover.currentRole === "ADMIN"
+                  ? "action.selected"
+                  : "inherit",
+              py: 1.5,
+            }}
+          >
+            <Typography>Admin</Typography>
+          </MenuItem>
+        </Box>
+      </Popover>
 
       {/* Snackbar for notifications */}
       <Snackbar
