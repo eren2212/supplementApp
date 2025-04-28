@@ -280,6 +280,7 @@ export default function CartPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="mt-8 w-full py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition cursor-pointer"
+                onClick={() => (window.location.href = "/checkout")}
               >
                 Siparişi Tamamla
               </motion.button>
