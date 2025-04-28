@@ -41,8 +41,18 @@ export async function GET() {
   }
 
   try {
+    // Son 5 günün tarihini hesapla
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
     const activities = await prisma.activity.findMany({
-      where: { userId: session.user.id }, // ID'YE GÖRE SORGULA
+      where: {
+        userId: session.user.id,
+        // 5 günden yeni aktiviteleri getir
+        date: {
+          gte: fiveDaysAgo,
+        },
+      },
       orderBy: { date: "desc" },
     });
 

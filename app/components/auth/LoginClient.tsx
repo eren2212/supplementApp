@@ -6,11 +6,22 @@ import { FcGoogle } from "react-icons/fc";
 import { toast } from "react-hot-toast";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 
-type FormData = {
-  email: string;
-  password: string;
-};
+// Form doğrulama şeması
+const loginSchema = yup.object({
+  email: yup
+    .string()
+    .required("E-posta adresi zorunludur")
+    .email("Geçerli bir e-posta adresi giriniz"),
+  password: yup
+    .string()
+    .required("Şifre zorunludur")
+    .min(6, "Şifre en az 6 karakter olmalıdır"),
+});
+
+type FormData = yup.InferType<typeof loginSchema>;
 
 const LoginClient = () => {
   const router = useRouter();
@@ -18,7 +29,10 @@ const LoginClient = () => {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>();
+  } = useForm<FormData>({
+    resolver: yupResolver(loginSchema),
+    mode: "onChange",
+  });
   const [loading, setLoading] = useState(false);
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
@@ -63,12 +77,16 @@ const LoginClient = () => {
             <label className="block text-gray-700">E-posta</label>
             <input
               type="email"
-              {...register("email", { required: "E-posta zorunludur" })}
-              className="w-full p-3 border border-gray-300 rounded-md"
+              {...register("email")}
+              className={`w-full p-3 border ${
+                errors.email ? "border-red-500" : "border-gray-300"
+              } rounded-md`}
               placeholder="E-posta adresinizi girin"
             />
             {errors.email && (
-              <p className="text-red-500 text-sm">{errors.email.message}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -76,18 +94,22 @@ const LoginClient = () => {
             <label className="block text-gray-700">Şifre</label>
             <input
               type="password"
-              {...register("password", { required: "Şifre zorunludur" })}
-              className="w-full p-3 border border-gray-300 rounded-md"
+              {...register("password")}
+              className={`w-full p-3 border ${
+                errors.password ? "border-red-500" : "border-gray-300"
+              } rounded-md`}
               placeholder="Şifrenizi girin"
             />
             {errors.password && (
-              <p className="text-red-500 text-sm">{errors.password.message}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-500"
+            className="w-full bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-500 transition-colors duration-300"
             disabled={loading}
           >
             {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
@@ -102,7 +124,7 @@ const LoginClient = () => {
 
         <button
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 py-3 rounded-md hover:bg-gray-100 cursor-pointer"
+          className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 py-3 rounded-md hover:bg-gray-100 cursor-pointer transition-colors duration-300"
         >
           <FcGoogle className="text-2xl mr-2" /> Google ile Giriş Yap
         </button>
@@ -111,7 +133,7 @@ const LoginClient = () => {
           Üye olmadınız mı?
           <a
             onClick={() => router.push("/register")}
-            className="text-indigo-600 hover:underline ml-1 cursor-pointer"
+            className="text-indigo-600 hover:underline ml-1 cursor-pointer font-medium"
           >
             Üye Ol
           </a>

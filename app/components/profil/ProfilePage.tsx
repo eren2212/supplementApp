@@ -31,6 +31,7 @@ import {
   Tabs,
   Tab,
   InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -46,9 +47,10 @@ import {
   Lock as LockIcon,
   Person as PersonIcon,
   History as HistoryIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -175,6 +177,7 @@ interface UserData {
   reviewsCount?: number;
   lastOrderDate?: string;
   paymentMethods?: number;
+  accountType?: "credentials" | "oauth"; // Hesap tipi
 }
 
 interface Activity {
@@ -359,8 +362,102 @@ const PasswordDialog = ({
 }) => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [validationErrors, setValidationErrors] = useState<{
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
+
+  const validatePassword = (password: string): boolean => {
+    // En az 8 karakter
+    if (password.length < 8) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: "Şifre en az 8 karakter olmalıdır",
+      }));
+      return false;
+    }
+
+    // En az bir büyük harf
+    if (!/[A-Z]/.test(password)) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: "Şifre en az bir büyük harf içermelidir",
+      }));
+      return false;
+    }
+
+    // En az bir küçük harf
+    if (!/[a-z]/.test(password)) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: "Şifre en az bir küçük harf içermelidir",
+      }));
+      return false;
+    }
+
+    // En az bir rakam
+    if (!/\d/.test(password)) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: "Şifre en az bir rakam içermelidir",
+      }));
+      return false;
+    }
+
+    // Şifre geçerli
+    setValidationErrors((prev) => ({ ...prev, newPassword: undefined }));
+    return true;
+  };
+
+  const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewPassword(value);
+    validatePassword(value);
+  };
+
+  const handleConfirmPasswordChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setConfirmPassword(value);
+
+    if (value !== newPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        confirmPassword: "Şifreler eşleşmiyor",
+      }));
+    } else {
+      setValidationErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+    }
+  };
 
   const handleSubmit = () => {
+    // Mevcut şifre kontrolü
+    if (!currentPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        currentPassword: "Mevcut şifrenizi giriniz",
+      }));
+      return;
+    }
+
+    // Yeni şifre doğrulama
+    if (!validatePassword(newPassword)) {
+      return;
+    }
+
+    // Şifre eşleşme kontrolü
+    if (newPassword !== confirmPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        confirmPassword: "Şifreler eşleşmiyor",
+      }));
+      return;
+    }
+
+    // Tüm validasyonlar geçti
     onSubmit(currentPassword, newPassword);
   };
 
@@ -384,7 +481,17 @@ const PasswordDialog = ({
           type="password"
           margin="normal"
           value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
+          onChange={(e) => {
+            setCurrentPassword(e.target.value);
+            if (e.target.value) {
+              setValidationErrors((prev) => ({
+                ...prev,
+                currentPassword: undefined,
+              }));
+            }
+          }}
+          error={!!validationErrors.currentPassword}
+          helperText={validationErrors.currentPassword}
           sx={{ mb: 2 }}
         />
         <TextField
@@ -393,8 +500,45 @@ const PasswordDialog = ({
           type="password"
           margin="normal"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          helperText="En az 8 karakter, bir büyük harf, bir küçük harf ve bir sayı içermeli"
+          onChange={handleNewPasswordChange}
+          error={!!validationErrors.newPassword}
+          helperText={validationErrors.newPassword}
+          sx={{ mb: 2 }}
+          InputProps={{
+            endAdornment: (
+              <Tooltip
+                title={
+                  <Box sx={{ p: 1 }}>
+                    <Typography variant="body2" fontWeight={500} gutterBottom>
+                      Şifreniz aşağıdaki gereksinimleri karşılamalıdır:
+                    </Typography>
+                    <ul style={{ paddingLeft: "16px", margin: "8px 0" }}>
+                      <li>En az 8 karakter uzunluğunda</li>
+                      <li>En az bir büyük harf</li>
+                      <li>En az bir küçük harf</li>
+                      <li>En az bir rakam</li>
+                    </ul>
+                  </Box>
+                }
+                placement="right"
+                arrow
+              >
+                <IconButton edge="end" tabIndex={-1} size="small">
+                  <InfoIcon fontSize="small" sx={{ color: "action.active" }} />
+                </IconButton>
+              </Tooltip>
+            ),
+          }}
+        />
+        <TextField
+          fullWidth
+          label="Yeni Şifre Tekrar"
+          type="password"
+          margin="normal"
+          value={confirmPassword}
+          onChange={handleConfirmPasswordChange}
+          error={!!validationErrors.confirmPassword}
+          helperText={validationErrors.confirmPassword}
         />
         {error && (
           <Typography color="error" sx={{ mt: 1 }}>
@@ -412,7 +556,12 @@ const PasswordDialog = ({
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={isLoading}
+          disabled={
+            isLoading ||
+            !!validationErrors.newPassword ||
+            !!validationErrors.confirmPassword ||
+            !!validationErrors.currentPassword
+          }
           variant="contained"
           sx={{
             backgroundColor: themeColors.primary,
@@ -532,45 +681,129 @@ export default function ProfilePage() {
     },
   });
 
-  const isOAuthUser = !(session?.user?.provider === "credentials");
-  console.log(isOAuthUser);
-  const fetchProfile = async () => {
-    if (status === "authenticated") {
-      setIsLoadingProfile(true);
-      try {
-        // Session'dan temel bilgileri al
-        setUserData({
-          id: session.user?.id || " ",
-          name: session.user?.name || "",
-          email: session.user?.email || "",
-          address: session.user?.address || null,
-          phone:
-            "phone" in session.user ? (session.user.phone as string) : null,
-          image: session.user?.image || null,
-          role: session.user?.role || "CUSTOMER",
-          joinDate: session.user?.joinDate || new Date().toISOString(),
-        });
+  // Google, GitHub gibi harici sağlayıcılarla mı giriş yapıldı kontrolü
+  const isOAuthUser = useMemo(() => {
+    // 1. UserData'dan gelen account type bilgisini kontrol et
+    if (userData.accountType === "oauth") {
+      return true;
+    }
 
+    // 2. Oturum varsa provider bilgisini kontrol et
+    if (session?.user) {
+      // Provider doğrudan 'google', 'github' gibi bir değer olabilir
+      if (session.user.provider && session.user.provider !== "credentials") {
+        return true;
+      }
+
+      // Email kontrolü - Google hesapları genelde gmail uzantılı olur
+      if (
+        session.user.email?.endsWith("@gmail.com") &&
+        session.user.image?.includes("googleusercontent.com")
+      ) {
+        return true;
+      }
+
+      // Image URL kontrolü - OAuth sağlayıcıları genelde kendi resim URL'lerini kullanır
+      if (
+        session.user.image &&
+        (session.user.image.includes("googleusercontent.com") ||
+          session.user.image.includes("github") ||
+          session.user.image.includes("facebook"))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [session, userData]);
+
+  console.log(
+    "isOAuthUser:",
+    isOAuthUser,
+    "accountType:",
+    userData.accountType,
+    "provider:",
+    session?.user?.provider,
+    "email:",
+    session?.user?.email,
+    "image:",
+    session?.user?.image
+  );
+  const fetchProfile = async () => {
+    // Oturum açık değilse API çağrılarını yapma
+    if (status !== "authenticated" || !session?.user) {
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    setIsLoadingProfile(true);
+    try {
+      // Hesap tipini belirle
+      let currentAccountType: "credentials" | "oauth" = "credentials";
+
+      // Provider bilgisine göre hesap tipini belirle
+      if (session?.user?.provider && session.user.provider !== "credentials") {
+        currentAccountType = "oauth";
+      } else if (
+        session?.user?.image &&
+        (session.user.image.includes("googleusercontent.com") ||
+          session.user.image.includes("github"))
+      ) {
+        currentAccountType = "oauth";
+      }
+
+      // Session'dan temel bilgileri al
+      setUserData({
+        id: session.user?.id || " ",
+        name: session.user?.name || "",
+        email: session.user?.email || "",
+        address: session.user?.address || null,
+        phone:
+          session.user && "phone" in session.user
+            ? (session.user.phone as string)
+            : null,
+        image: session.user?.image || null,
+        role: session.user?.role || "CUSTOMER",
+        joinDate: session.user?.joinDate || new Date().toISOString(),
+        accountType: currentAccountType, // Hesap tipini ekle
+      });
+
+      // Ek bilgiler için API'ye istek at - hata yönetimini geliştir
+      try {
         // Ek bilgiler için API'ye istek at
         const response = await api.get("/profile");
         if (response.data?.data) {
-          // Kullanıcının yorum sayısını al
-          const commentsResponse = await api.get(
-            `/comments/user/${session.user?.id}`
-          );
-          const reviewsCount = commentsResponse.data?.count || 0;
+          try {
+            // Kullanıcının yorum sayısını ayrı bir try-catch bloğunda al
+            const commentsResponse = await api.get(
+              `/comments/user/${session.user?.id}`
+            );
+            const reviewsCount = commentsResponse.data?.count || 0;
 
-          setUserData((prev) => ({
-            ...prev,
-            ...response.data.data,
-            reviewsCount,
-          }));
+            // Tüm verileri güncelle
+            setUserData((prev) => ({
+              ...prev,
+              ...response.data.data,
+              reviewsCount,
+              accountType: response.data.data.accountType || prev.accountType,
+            }));
+          } catch (commentsError) {
+            console.error("Yorum sayısı alınırken hata:", commentsError);
+            // Yorum alınamazsa yorumsuz veriyi güncelle
+            setUserData((prev) => ({
+              ...prev,
+              ...response.data.data,
+              accountType: response.data.data.accountType || prev.accountType,
+            }));
+          }
         }
-      } catch (error: any) {
-        console.error("Profil bilgileri alınırken hata:", error);
-      } finally {
-        setIsLoadingProfile(false);
+      } catch (apiError) {
+        console.error("API isteklerinde hata:", apiError);
+        // Session verilerini kullanmaya devam et, API çağrısı başarısız olsa bile
       }
+    } catch (error: any) {
+      console.error("Profil bilgileri alınırken hata:", error);
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -579,6 +812,12 @@ export default function ProfilePage() {
   }, [status, session]);
 
   const handleEditField = (field: keyof UserData) => async (value: string) => {
+    // Oturum açık değilse API çağrısı yapma
+    if (status !== "authenticated" || !session?.user) {
+      toast.error("Oturum açık değil, lütfen tekrar giriş yapınız.");
+      return;
+    }
+
     setProfileUpdateError(null);
     try {
       // Telefon numarası için özel doğrulama
@@ -641,6 +880,12 @@ export default function ProfilePage() {
     currentPassword: string,
     newPassword: string
   ) => {
+    // Oturum açık değilse API çağrısı yapma
+    if (status !== "authenticated" || !session?.user) {
+      toast.error("Oturum açık değil, lütfen tekrar giriş yapınız.");
+      return;
+    }
+
     if (!currentPassword || !newPassword) {
       setPasswordUpdateError("Lütfen tüm alanları doldurun");
       return;
@@ -847,7 +1092,6 @@ export default function ProfilePage() {
                     borderRadius: "12px 12px 0 0",
                     textTransform: "none",
                   }}
-                  disabled={isOAuthUser}
                 />
               </Tabs>
 
@@ -957,7 +1201,7 @@ export default function ProfilePage() {
                         </Grid>
                       </Grid>
 
-                      {!isOAuthUser && (
+                      {!isOAuthUser ? (
                         <Button
                           variant="outlined"
                           startIcon={<LockIcon />}
@@ -977,6 +1221,25 @@ export default function ProfilePage() {
                         >
                           Şifre Değiştir
                         </Button>
+                      ) : (
+                        <Box
+                          sx={{
+                            p: 2,
+                            borderRadius: "12px",
+                            backgroundColor: "rgba(124, 58, 237, 0.05)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            color="textSecondary"
+                            textAlign="center"
+                          >
+                            Google hesabıyla giriş yaptınız
+                          </Typography>
+                        </Box>
                       )}
                     </Box>
                   </Grid>
@@ -1199,7 +1462,7 @@ export default function ProfilePage() {
 
               {activeTab === 1 && <UserActivities />}
 
-              {activeTab === 2 && !isOAuthUser && (
+              {activeTab === 2 && (
                 <Card
                   sx={{
                     borderRadius: "20px",
@@ -1228,51 +1491,85 @@ export default function ProfilePage() {
                   </Box>
 
                   <CardContent sx={{ p: 4 }}>
-                    <Box
-                      sx={{
-                        backgroundColor: "rgba(124, 58, 237, 0.05)",
-                        borderRadius: "16px",
-                        p: 3,
-                        mb: 3,
-                      }}
-                    >
-                      <Typography
-                        variant="body1"
+                    {!isOAuthUser ? (
+                      <Box
                         sx={{
-                          fontWeight: 600,
-                          mb: 1,
-                          display: "flex",
-                          alignItems: "center",
+                          backgroundColor: "rgba(124, 58, 237, 0.05)",
+                          borderRadius: "16px",
+                          p: 3,
+                          mb: 3,
                         }}
                       >
-                        <LockIcon sx={{ mr: 1, fontSize: "1.2rem" }} />
-                        Şifre Değiştir
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="textSecondary"
-                        sx={{ mb: 2 }}
-                      >
-                        Hesap güvenliğiniz için düzenli aralıklarla şifrenizi
-                        güncellemenizi öneririz.
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        onClick={() => setPasswordDialogOpen(true)}
-                        fullWidth
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            fontWeight: 600,
+                            mb: 1,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <LockIcon sx={{ mr: 1, fontSize: "1.2rem" }} />
+                          Şifre Değiştir
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="textSecondary"
+                          sx={{ mb: 2 }}
+                        >
+                          Hesap güvenliğiniz için düzenli aralıklarla şifrenizi
+                          güncellemenizi öneririz.
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          onClick={() => setPasswordDialogOpen(true)}
+                          fullWidth
+                          sx={{
+                            backgroundColor: themeColors.primary,
+                            borderRadius: "12px",
+                            textTransform: "none",
+                            py: 1.5,
+                            "&:hover": {
+                              backgroundColor: themeColors.secondary,
+                            },
+                          }}
+                        >
+                          Şifre Değiştir
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box
                         sx={{
-                          backgroundColor: themeColors.primary,
-                          borderRadius: "12px",
-                          textTransform: "none",
-                          py: 1.5,
-                          "&:hover": {
-                            backgroundColor: themeColors.secondary,
-                          },
+                          backgroundColor: "rgba(124, 58, 237, 0.05)",
+                          borderRadius: "16px",
+                          p: 3,
+                          mb: 3,
                         }}
                       >
-                        Şifre Değiştir
-                      </Button>
-                    </Box>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            fontWeight: 600,
+                            mb: 1,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <LockIcon sx={{ mr: 1, fontSize: "1.2rem" }} />
+                          Google Hesabı
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="textSecondary"
+                          sx={{ mb: 2 }}
+                        >
+                          Google hesabınızla giriş yaptığınız için uygulama
+                          içinde şifre değiştirmeniz mümkün değildir. Şifrenizi
+                          değiştirmek için Google hesap ayarlarınızı
+                          kullanmalısınız.
+                        </Typography>
+                      </Box>
+                    )}
 
                     <AccountDeleteButon />
                   </CardContent>
