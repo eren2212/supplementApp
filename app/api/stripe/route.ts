@@ -149,11 +149,61 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
+      // Bekleyen bir PaymentIntent olup olmadığını kontrol et - 24 saat içinde oluşturulan ve aynı miktara sahip
+      const existingPayment = await prismadb.payment.findFirst({
+        where: {
+          userId: userId,
+          amount: amount,
+          status: "requires_payment_method", // Bekleyen ödeme durumu
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Son 24 saat
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      // Eğer bekleyen bir PaymentIntent varsa, onu kullan
+      if (existingPayment?.paymentIntentId) {
+        try {
+          console.log(
+            "Var olan PaymentIntent kullanılıyor:",
+            existingPayment.paymentIntentId
+          );
+
+          // PaymentIntent bilgilerini getir
+          const existingIntent = await stripe.paymentIntents.retrieve(
+            existingPayment.paymentIntentId
+          );
+
+          if (
+            existingIntent &&
+            existingIntent.status !== "canceled" &&
+            existingIntent.status !== "succeeded"
+          ) {
+            // Bekleyen PaymentIntent'i kullan
+            return NextResponse.json({
+              clientSecret: existingIntent.client_secret,
+              paymentIntentId: existingIntent.id,
+              isExisting: true,
+            });
+          }
+        } catch (retrieveError) {
+          console.log(
+            "Var olan PaymentIntent alınamadı, yeni oluşturulacak:",
+            retrieveError
+          );
+          // Hata durumunda yeni bir PaymentIntent oluştur
+        }
+      }
+
       // Yeni ödeme oluştur
       const paymentIntentData: any = {
         amount: Math.round(amount * 100),
         currency: "try",
         description: description || "Ödeme işlemi",
+        payment_method_types: ["card"], // Açıkça kart ödeme yöntemini belirt
         metadata: {
           userId: userId,
         },
@@ -169,10 +219,13 @@ export async function POST(req: NextRequest) {
         if (user?.stripeCustomerId) {
           console.log("Stripe müşteri ID'si bulundu:", user.stripeCustomerId);
           paymentIntentData.customer = user.stripeCustomerId;
-          // Sadece Stripe müşteri ID'si varsa setup_future_usage kullan
+
+          // setup_future_usage yerine save_payment_method kullan
           paymentIntentData.setup_future_usage = "off_session";
         } else {
-          console.log("Stripe müşteri ID'si bulunamadı");
+          console.log(
+            "Stripe müşteri ID'si bulunamadı, yeni bir müşteri oluşturulmayacak"
+          );
         }
       }
 
@@ -187,14 +240,45 @@ export async function POST(req: NextRequest) {
         );
         console.log("Stripe PaymentIntent oluşturuldu:", paymentIntent.id);
 
+        if (!paymentIntent.client_secret) {
+          throw new Error(
+            "Ödeme işlemi için gerekli olan client_secret oluşturulamadı"
+          );
+        }
+
+        // Ödeme kaydını veritabanına kaydet
+        await prismadb.payment.create({
+          data: {
+            amount: amount,
+            paymentIntentId: paymentIntent.id,
+            status: paymentIntent.status,
+            userId: userId,
+          },
+        });
+
         return NextResponse.json({
           clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
         });
       } catch (stripeError: any) {
         console.error(
           "Stripe PaymentIntent oluşturma hatası:",
           stripeError.message
         );
+
+        // Stripe API hatalarını daha iyi anlamak için
+        if (stripeError.type === "StripeCardError") {
+          return NextResponse.json(
+            { error: "Kart bilgilerinde bir sorun var." },
+            { status: 400 }
+          );
+        } else if (stripeError.type === "StripeInvalidRequestError") {
+          return NextResponse.json(
+            { error: "Geçersiz ödeme isteği." },
+            { status: 400 }
+          );
+        }
+
         return NextResponse.json(
           {
             error:

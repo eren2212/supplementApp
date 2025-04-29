@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function CancelPage() {
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
+    <Container maxWidth="md" sx={{ py: 8, mt: 10 }}>
       <Paper
         elevation={0}
         sx={{
