@@ -116,45 +116,10 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Kargo bilgilerini hazırla
-      const shippingInfo = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        postcode: formData.postcode,
-      };
-
-      // Ödeme isteği gönder
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items,
-          shippingInfo,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Ödeme işlemi sırasında bir hata oluştu");
-      }
-
-      // Stripe.js yönlendirmesi için
-      if (data.url) {
-        window.location.href = data.url;
-        return;
-      }
-
-      // Başarılı ödeme
-      clearCart();
-      router.push(`/checkout/success?order_id=${data.orderId}`);
-      toast.success("Ödeme başarıyla tamamlandı");
+      // Stripe ödeme sayfasına yönlendir
+      const amount = getTotalPrice();
+      // Router yerine window.location kullanarak yönlendir
+      window.location.href = `/payment?amount=${amount}&description=Sipariş ödemesi&returnUrl=/checkout/success`;
     } catch (error: any) {
       console.error("Ödeme hatası:", error);
       setError(error.message || "Ödeme işlemi sırasında bir hata oluştu");
@@ -337,11 +302,14 @@ export default function CheckoutPage() {
                   alignItems: "center",
                 }}
               >
-                <img
-                  src="/images/payment-methods.png"
-                  alt="Ödeme Yöntemleri"
-                  style={{ maxWidth: "100%", height: "40px" }}
-                />
+                <Typography variant="body2" sx={{ textAlign: "center" }}>
+                  <CreditCard
+                    sx={{ fontSize: 40, mb: 1, color: "primary.main" }}
+                  />
+                  <br />
+                  Visa, Mastercard, American Express ve diğer tüm kredi kartları
+                  ile güvenli ödeme
+                </Typography>
               </Box>
             </Paper>
 
