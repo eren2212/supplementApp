@@ -28,6 +28,13 @@ import {
   Stepper,
   Step,
   StepLabel,
+  MenuItem,
+  FormControl,
+  Select,
+  SelectChangeEvent,
+  InputLabel,
+  FormHelperText,
+  InputAdornment,
 } from "@mui/material";
 import {
   PaymentOutlined,
@@ -41,6 +48,7 @@ import {
   LocationOnOutlined,
   ReceiptOutlined,
 } from "@mui/icons-material";
+import { turkishCities } from "@/app/data/cities";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -75,10 +83,16 @@ export default function CheckoutPage() {
       errors.email = "Geçerli bir e-posta adresi giriniz";
 
     if (!formData.phone.trim()) errors.phone = "Telefon alanı zorunludur";
+    else if (!/^[0-9]{10}$/.test(formData.phone))
+      errors.phone = "Telefon numarası 10 haneli olmalıdır (Örn: 5XX1234567)";
+
     if (!formData.address.trim()) errors.address = "Adres alanı zorunludur";
     if (!formData.city.trim()) errors.city = "Şehir alanı zorunludur";
+
     if (!formData.postcode.trim())
       errors.postcode = "Posta kodu alanı zorunludur";
+    else if (!/^[0-9]{5}$/.test(formData.postcode))
+      errors.postcode = "Posta kodu 5 haneli sayı olmalıdır";
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -109,6 +123,46 @@ export default function CheckoutPage() {
   // Form alanı değişikliği
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    if (!name) return;
+
+    // Telefon numarası için özel kontrol
+    if (name === "phone") {
+      // Sadece sayıları kabul et ve 10 haneden fazla olmasını engelle
+      const phoneValue = value.replace(/\D/g, "").slice(0, 10);
+      setFormData({
+        ...formData,
+        [name]: phoneValue,
+      });
+    }
+    // Posta kodu için özel kontrol
+    else if (name === "postcode") {
+      // Sadece sayıları kabul et ve 5 haneden fazla olmasını engelle
+      const postcodeValue = value.replace(/\D/g, "").slice(0, 5);
+      setFormData({
+        ...formData,
+        [name]: postcodeValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
+
+    // Hata mesajını temizle
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: "",
+      });
+    }
+  };
+
+  // Select alanı değişikliği
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+
     setFormData({
       ...formData,
       [name]: value,
@@ -346,6 +400,14 @@ export default function CheckoutPage() {
                               error={!!formErrors.phone}
                               helperText={formErrors.phone}
                               required
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    +90
+                                  </InputAdornment>
+                                ),
+                              }}
+                              placeholder="5XX1234567"
                               sx={{
                                 "& .MuiOutlinedInput-root": {
                                   borderRadius: "10px",
@@ -412,22 +474,39 @@ export default function CheckoutPage() {
                             />
                           </Grid>
                           <Grid item xs={12} sm={6}>
-                            <TextField
+                            <FormControl
                               fullWidth
-                              label="Şehir"
-                              variant="outlined"
-                              name="city"
-                              value={formData.city}
-                              onChange={handleInputChange}
                               error={!!formErrors.city}
-                              helperText={formErrors.city}
-                              required
                               sx={{
                                 "& .MuiOutlinedInput-root": {
                                   borderRadius: "10px",
                                 },
                               }}
-                            />
+                            >
+                              <InputLabel id="city-select-label">
+                                Şehir
+                              </InputLabel>
+                              <Select
+                                labelId="city-select-label"
+                                id="city-select"
+                                name="city"
+                                value={formData.city}
+                                label="Şehir"
+                                onChange={handleSelectChange}
+                                required
+                              >
+                                {turkishCities.map((city) => (
+                                  <MenuItem key={city} value={city}>
+                                    {city}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              {formErrors.city && (
+                                <FormHelperText>
+                                  {formErrors.city}
+                                </FormHelperText>
+                              )}
+                            </FormControl>
                           </Grid>
                           <Grid item xs={12} sm={6}>
                             <TextField
@@ -440,6 +519,11 @@ export default function CheckoutPage() {
                               error={!!formErrors.postcode}
                               helperText={formErrors.postcode}
                               required
+                              inputProps={{
+                                inputMode: "numeric",
+                                pattern: "[0-9]*",
+                              }}
+                              placeholder="12345"
                               sx={{
                                 "& .MuiOutlinedInput-root": {
                                   borderRadius: "10px",

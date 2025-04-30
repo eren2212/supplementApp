@@ -22,6 +22,7 @@ model User {
   activities     Activity[] // Kullanıcıya ait aktiviteler
   commentReports CommentReport[] // Kullanıcının yaptığı yoruml şikayetleri
   payments       Payment[]  // Kullanıcı ödemeleri
+  orders         Order[]    // Kullanıcının siparişleri 
 }
 
 model Activity {
@@ -150,4 +151,59 @@ model Payment {
   description     String?
   metadata        Json?
   createdAt       DateTime @default(now())
+  order           Order?   // Bağlı sipariş
+}
+
+// Sipariş modeli
+model Order {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  user            User          @relation(fields: [userId], references: [id])
+  userId          String        @db.ObjectId
+  orderNumber     String        @unique // Sipariş numarası (örn: ORD-12345)
+  status          OrderStatus   @default(pending) // Sipariş durumu
+  items           OrderItem[]   // Siparişteki ürünler
+  totalAmount     Float         // Toplam tutar
+  shippingAddress ShippingAddress // Teslimat adresi
+  paymentId       String?       @unique @db.ObjectId // Ödeme bilgisi
+  payment         Payment?      @relation(fields: [paymentId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  notes           String?       // Sipariş notları
+  trackingNumber  String?       // Kargo takip numarası
+}
+
+// Sipariş ürünü modeli
+model OrderItem {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String      @db.ObjectId
+  productId     String      @db.ObjectId
+  productName   String      // Ürün adı
+  productImage  String?     // Ürün resmi URL'si
+  quantity      Int         // Adet
+  unitPrice     Float       // Birim fiyat
+  totalPrice    Float       // Toplam fiyat (quantity * unitPrice)
+}
+
+// Teslimat adresi için embedded model
+type ShippingAddress {
+  firstName     String
+  lastName      String
+  email         String
+  phone         String
+  address       String
+  city          String
+  postcode      String
+  country       String      @default("Türkiye")
+}
+
+// Sipariş durumu için enum
+enum OrderStatus {
+  pending       // Beklemede
+  processing    // İşleniyor
+  shipped       // Kargoya verildi
+  delivered     // Teslim edildi
+  completed     // Tamamlandı
+  cancelled     // İptal edildi
+  returned      // İade edildi
 }

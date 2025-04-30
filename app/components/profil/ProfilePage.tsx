@@ -57,6 +57,7 @@ import toast from "react-hot-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import UserActivities from "./UserActivities";
+import { useRouter } from "next/navigation";
 
 dayjs.extend(relativeTime);
 dayjs.locale("tr");
@@ -673,6 +674,7 @@ export default function ProfilePage() {
     null
   );
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const router = useRouter();
 
   const api = axios.create({
     baseURL: "/api",
@@ -1444,6 +1446,7 @@ export default function ProfilePage() {
                               variant="outlined"
                               color="primary"
                               fullWidth
+                              onClick={() => router.push("/profile/orders")}
                               sx={{
                                 borderRadius: "12px",
                                 textTransform: "none",

@@ -1,256 +1,371 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useCartStore } from "@/app/store/cartStore";
+import axios from "axios";
+import { toast } from "react-hot-toast";
 import {
   Box,
   Container,
   Typography,
-  Button,
   Paper,
+  Button,
   CircularProgress,
+  Stack,
   Divider,
+  useTheme,
+  alpha,
+  Fade,
 } from "@mui/material";
 import {
-  CheckCircleOutlined,
-  ShoppingBagOutlined,
-  HomeOutlined,
+  CheckCircleOutline,
+  ShoppingBag,
+  Receipt,
+  ArrowForward,
 } from "@mui/icons-material";
-import Link from "next/link";
-import { useCartStore } from "@/app/store/cartStore";
 
-interface Order {
-  id: string;
-  totalAmount: number;
-  status: string;
-  paymentStatus: string;
-  createdAt: string;
-}
-
-export default function SuccessPage() {
+export default function CheckoutSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id");
-  const orderId = searchParams.get("order_id");
+  const { data: session } = useSession();
+  const { items, getTotalPrice, clearCart } = useCartStore();
+  const theme = useTheme();
   const [loading, setLoading] = useState(true);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [orderCreated, setOrderCreated] = useState(false);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { clearCart } = useCartStore();
 
+  // URL'den ödeme bilgilerini al
+  const paymentIntentId = searchParams.get("payment_intent");
+  const paymentStatus = searchParams.get("status");
+
+  // LocalStorage'dan teslimat bilgilerini al
   useEffect(() => {
-    // Sepeti temizle
-    clearCart();
-
-    // Sipariş durumunu kontrol et
-    const verifyPayment = async () => {
+    const createOrder = async () => {
       try {
-        if (!sessionId && !orderId) {
+        // Sepet boşsa ana sayfaya yönlendir
+        if (items.length === 0) {
           router.push("/");
           return;
         }
 
-        // API'dan sipariş durumunu kontrol et
-        const response = await fetch(
-          `/api/checkout?session_id=${sessionId || ""}&order_id=${
-            orderId || ""
-          }`
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Sipariş bilgileri alınamadı");
+        // Oturum yoksa giriş sayfasına yönlendir
+        if (!session) {
+          router.push("/login");
+          return;
         }
 
-        setOrder(data.order);
+        // URL'den sipariş ID'sini al (checkout API'den dönüyor)
+        const orderIdFromURL = searchParams.get("order_id");
+        const sessionId = searchParams.get("session_id");
+
+        // Ödeme başarılı değilse sepet sayfasına yönlendir
+        if (paymentStatus !== "success" && !orderIdFromURL) {
+          toast.error("Ödeme işlemi başarısız oldu");
+          setError("Ödeme işlemi başarısız oldu. Lütfen tekrar deneyiniz.");
+          router.push("/cart");
+          return;
+        }
+
+        // LocalStorage'dan teslimat bilgilerini al
+        const shippingInfoStr = localStorage.getItem("shippingInfo");
+        if (!shippingInfoStr) {
+          toast.error("Teslimat bilgileri bulunamadı");
+          setError("Teslimat bilgileri bulunamadı. Lütfen tekrar deneyiniz.");
+          router.push("/cart");
+          return;
+        }
+
+        const shippingInfo = JSON.parse(shippingInfoStr);
+
+        try {
+          // Eğer sipariş zaten checkout API'de oluşturulduysa, sadece teslimat bilgilerini güncelle
+          if (orderIdFromURL && sessionId) {
+            // Checkout API'den ödeme durumunu doğrula
+            const { data: sessionData } = await axios.get(
+              `/api/checkout?session_id=${sessionId}&order_id=${orderIdFromURL}`
+            );
+
+            if (sessionData.success) {
+              // Sipariş zaten oluşturuldu, sadece teslimat bilgilerini güncelle
+              await axios.patch(`/api/orders/${orderIdFromURL}`, {
+                shippingAddress: shippingInfo,
+              });
+
+              // Sipariş numarasını al
+              setOrderNumber(sessionData.order.orderNumber);
+              setOrderCreated(true);
+
+              // Sepeti temizle
+              clearCart();
+
+              // localStorage'dan teslimat bilgilerini temizle
+              localStorage.removeItem("shippingInfo");
+
+              // Başarılı mesaj göster
+              toast.success("Siparişiniz başarıyla oluşturuldu!");
+
+              // 3 saniye sonra siparişler sayfasına yönlendir
+              setTimeout(() => {
+                router.push("/profile/orders");
+              }, 3000);
+
+              return;
+            }
+          }
+
+          // Eğer yukarıdaki yöntem çalışmadıysa, yeni sipariş oluştur
+          const { data } = await axios.post("/api/orders", {
+            items,
+            totalAmount: getTotalPrice(),
+            shippingAddress: shippingInfo,
+            paymentIntentId,
+            paymentStatus: "completed",
+          });
+
+          // Sipariş numarasını kaydet
+          setOrderNumber(data.orderNumber);
+          setOrderCreated(true);
+
+          // Sepeti temizle
+          clearCart();
+
+          // localStorage'dan teslimat bilgilerini temizle
+          localStorage.removeItem("shippingInfo");
+
+          // Başarılı mesajı göster
+          toast.success("Siparişiniz başarıyla oluşturuldu!");
+
+          // 3 saniye sonra siparişler sayfasına yönlendir
+          setTimeout(() => {
+            router.push("/profile/orders");
+          }, 3000);
+        } catch (apiError: any) {
+          console.error("API hatası:", apiError);
+          throw apiError;
+        }
       } catch (error: any) {
-        console.error("Ödeme doğrulama hatası:", error);
-        setError(error.message);
+        console.error("Sipariş oluşturulurken hata:", error);
+
+        // Hata mesajını belirle
+        const errorMessage =
+          error.response?.data?.error ||
+          "Sipariş oluşturulurken bir hata oluştu. Lütfen müşteri hizmetleriyle iletişime geçin.";
+
+        setError(errorMessage);
+        toast.error(errorMessage);
+
+        // Hata durumunda 3 saniye sonra profil/orders sayfasına yönlendir
+        // Kullanıcı ödemesi yapıldığı için yine de siparişlere bakabilir
+        setTimeout(() => {
+          router.push("/profile/orders");
+        }, 3000);
       } finally {
         setLoading(false);
       }
     };
 
-    verifyPayment();
-  }, [sessionId, orderId, router, clearCart]);
+    if (paymentIntentId && items.length > 0) {
+      // Kullanıcının oturumu kontrol ediliyor, maksimum 5 saniye bekleyelim
+      const checkSessionTimeout = setTimeout(() => {
+        if (!session) {
+          setLoading(false);
+          setError(
+            "Oturum bilgileriniz doğrulanamadı. Lütfen giriş yapın ve tekrar deneyin."
+          );
+          router.push("/login");
+        }
+      }, 5000);
+
+      if (session) {
+        clearTimeout(checkSessionTimeout);
+        createOrder();
+      }
+    } else {
+      // OrderId URL'de varsa ve session var ise orderı kontrol et
+      const orderIdFromURL = searchParams.get("order_id");
+      const sessionId = searchParams.get("session_id");
+
+      if (orderIdFromURL && sessionId && session) {
+        createOrder();
+      } else {
+        setLoading(false);
+        if (!paymentIntentId && !orderIdFromURL) {
+          setError("Ödeme bilgileri bulunamadı. Lütfen tekrar deneyiniz.");
+        }
+        if (items.length === 0) {
+          setError("Sepetiniz boş. Lütfen ürün ekleyip tekrar deneyiniz.");
+        }
+      }
+    }
+  }, [
+    session,
+    items,
+    paymentIntentId,
+    paymentStatus,
+    router,
+    getTotalPrice,
+    clearCart,
+    searchParams,
+  ]);
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          textAlign="center"
-        >
-          <CircularProgress size={60} sx={{ mb: 4 }} />
-          <Typography variant="h5" gutterBottom>
-            Ödeme Durumu Kontrol Ediliyor
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Lütfen bekleyin, işleminiz tamamlanıyor...
-          </Typography>
-        </Box>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          textAlign="center"
-        >
-          <Typography variant="h5" color="error" gutterBottom>
-            Bir sorun oluştu
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 4 }}>
-            {error}
-          </Typography>
-          <Button
-            component={Link}
-            href="/"
-            variant="contained"
-            startIcon={<HomeOutlined />}
-          >
-            Ana Sayfaya Dön
-          </Button>
-        </Box>
-      </Container>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "80vh",
+        }}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ mt: 3 }}>
+          Siparişiniz oluşturuluyor...
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 5,
-          borderRadius: "20px",
-          border: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          textAlign="center"
+    <Container maxWidth="md" sx={{ py: 10, mt: 5 }}>
+      <Fade in={true} timeout={800}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: "16px",
+            textAlign: "center",
+            border: "1px solid",
+            borderColor: "divider",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+          }}
         >
-          <CheckCircleOutlined
-            sx={{ fontSize: 80, color: "success.main", mb: 3 }}
-          />
-
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
-            Sipariş Başarıyla Tamamlandı!
-          </Typography>
-
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            sx={{ mb: 4, maxWidth: "500px" }}
-          >
-            Ödemeniz başarıyla alındı. Siparişiniz kısa süre içinde hazırlanacak
-            ve size ulaştırılacak.
-          </Typography>
-
-          {order && (
-            <Box
-              sx={{
-                width: "100%",
-                mb: 4,
-                p: 3,
-                backgroundColor: "rgba(0, 150, 136, 0.05)",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography variant="h6" gutterBottom>
-                Sipariş Bilgileri
+          {orderCreated ? (
+            <Box>
+              <CheckCircleOutline
+                sx={{
+                  fontSize: 80,
+                  color: theme.palette.success.main,
+                  mb: 2,
+                }}
+              />
+              <Typography variant="h4" fontWeight={700} gutterBottom>
+                Siparişiniz Başarıyla Oluşturuldu!
               </Typography>
-              <Divider sx={{ mb: 2 }} />
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{ mb: 4, maxWidth: 500, mx: "auto" }}
+              >
+                Ödemeniz başarıyla alındı. Siparişiniz hazırlanıyor. Sipariş
+                detaylarınıza aşağıdaki bağlantıdan ulaşabilirsiniz.
+              </Typography>
 
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body1" color="text.secondary">
-                  Sipariş Numarası:
-                </Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  #{order.id.slice(-8).toUpperCase()}
+              <Box
+                sx={{
+                  p: 3,
+                  mb: 4,
+                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                  borderRadius: "10px",
+                  display: "inline-block",
+                }}
+              >
+                <Typography variant="body1" fontWeight={600}>
+                  Sipariş Numaranız:{" "}
+                  <Typography
+                    component="span"
+                    variant="body1"
+                    fontWeight={700}
+                    color="primary"
+                  >
+                    {orderNumber}
+                  </Typography>
                 </Typography>
               </Box>
 
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body1" color="text.secondary">
-                  Tutar:
-                </Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  {order.totalAmount.toLocaleString("tr-TR", {
-                    style: "currency",
-                    currency: "TRY",
-                  })}
-                </Typography>
-              </Box>
+              <Divider sx={{ my: 3 }} />
 
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body1" color="text.secondary">
-                  Ödeme Durumu:
-                </Typography>
-                <Typography
-                  variant="body1"
-                  fontWeight={500}
-                  color={
-                    order.paymentStatus === "PAID"
-                      ? "success.main"
-                      : "warning.main"
-                  }
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                justifyContent="center"
+                sx={{ mt: 3 }}
+              >
+                <Button
+                  variant="outlined"
+                  startIcon={<ShoppingBag />}
+                  onClick={() => router.push("/")}
+                  size="large"
+                  sx={{
+                    borderRadius: "10px",
+                    py: 1.5,
+                    px: 3,
+                    textTransform: "none",
+                  }}
                 >
-                  {order.paymentStatus === "PAID" ? "Ödendi" : "Beklemede"}
-                </Typography>
-              </Box>
-
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="body1" color="text.secondary">
-                  Sipariş Durumu:
-                </Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  {order.status === "PROCESSING"
-                    ? "Hazırlanıyor"
-                    : order.status === "PENDING"
-                    ? "Beklemede"
-                    : order.status === "SHIPPED"
-                    ? "Kargoya Verildi"
-                    : order.status === "DELIVERED"
-                    ? "Teslim Edildi"
-                    : "Beklemede"}
-                </Typography>
-              </Box>
+                  Alışverişe Devam Et
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Receipt />}
+                  onClick={() => router.push("/profile/orders")}
+                  size="large"
+                  sx={{
+                    borderRadius: "10px",
+                    py: 1.5,
+                    px: 3,
+                    textTransform: "none",
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  Siparişlerime Git
+                </Button>
+              </Stack>
+            </Box>
+          ) : (
+            <Box>
+              <Typography variant="h4" color="error" gutterBottom>
+                Bir Sorun Oluştu
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                {error ||
+                  "Siparişiniz oluşturulurken bir sorun oluştu. Lütfen tekrar deneyiniz."}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Ödemeniz başarıyla alınmış olabilir. Profil sayfanızdan
+                siparişlerinizi kontrol edebilirsiniz.
+              </Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                justifyContent="center"
+              >
+                <Button
+                  variant="outlined"
+                  onClick={() => router.push("/cart")}
+                  sx={{ borderRadius: "10px", py: 1.5, px: 3 }}
+                >
+                  Sepete Dön
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  endIcon={<ArrowForward />}
+                  onClick={() => router.push("/profile/orders")}
+                  sx={{ borderRadius: "10px", py: 1.5, px: 3 }}
+                >
+                  Siparişlerimi Kontrol Et
+                </Button>
+              </Stack>
             </Box>
           )}
-
-          <Box display="flex" gap={2}>
-            <Button
-              component={Link}
-              href="/"
-              variant="outlined"
-              startIcon={<HomeOutlined />}
-              sx={{ borderRadius: "8px", py: 1.5, px: 3 }}
-            >
-              Ana Sayfaya Dön
-            </Button>
-
-            <Button
-              component={Link}
-              href="/profile/orders"
-              variant="contained"
-              startIcon={<ShoppingBagOutlined />}
-              sx={{ borderRadius: "8px", py: 1.5, px: 3 }}
-            >
-              Siparişlerimi Görüntüle
-            </Button>
-          </Box>
-        </Box>
-      </Paper>
+        </Paper>
+      </Fade>
     </Container>
   );
 }
