@@ -17,6 +17,7 @@ import {
   Box,
   Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 
 interface CartItem {
   id: string;
@@ -34,6 +35,7 @@ export default function CartPage() {
   const [itemToRemove, setItemToRemove] = useState<string | null>(null);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     fetchProductDetails();
@@ -280,7 +282,7 @@ export default function CartPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="mt-8 w-full py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition cursor-pointer"
-                onClick={() => (window.location.href = "/checkout")}
+                onClick={() => router.push("/odeme")}
               >
                 Siparişi Tamamla
               </motion.button>
