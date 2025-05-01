@@ -34,6 +34,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/maintenance", request.url));
   }
 
+  if (pathname.startsWith("/odeme") && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  if (pathname.startsWith("/odeme-basarili") && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
   // Admin and doctor page protection
   if (
     (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) &&

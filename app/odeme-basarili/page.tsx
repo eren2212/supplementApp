@@ -144,10 +144,10 @@ export default function OdemeBasariliPage() {
 
             <div className="flex flex-col gap-3">
               <Link
-                href="/"
+                href="/profile/orders"
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
               >
-                Ana Sayfaya Dön
+                Siparişlerime Git
               </Link>
 
               <button

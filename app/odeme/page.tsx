@@ -46,19 +46,40 @@ const defaultAddressInfo: AddressInfo = {
 // Ödeme isteği oluşturma fonksiyonu
 const getClientSecret = async (
   amount: number,
-  items: any[],
-  metadata: any = {}
+  cartItems: any[],
+  personalInfo: PersonalInfo,
+  addressInfo: AddressInfo
 ) => {
   try {
+    // Teslimat adresi formatı
+    const shippingAddress = {
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
+      email: personalInfo.email,
+      phone: personalInfo.phone,
+      address: addressInfo.street,
+      city: addressInfo.city,
+      postcode: addressInfo.postalCode,
+      country: addressInfo.country,
+    };
+
     const response = await axios.post("/api/stripe", {
       amount,
+      currency: "try",
       description: "Ürün satın alımı",
+      cartItems: cartItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        imageUrl: item.imageUrl,
+      })),
+      shippingAddress,
       metadata: {
-        itemCount: items.length.toString(),
-        items: items.map((item) => item.id).join(","),
-        ...metadata,
+        itemCount: cartItems.length.toString(),
       },
     });
+
     return { secret: response.data.clientSecret, error: null };
   } catch (error: any) {
     console.error("Ödeme başlatılırken hata:", error);
@@ -383,19 +404,12 @@ export default function OdemePage() {
     const currentAmount = getTotalPrice();
     setAmount(currentAmount);
 
-    // Metadata olarak kullanıcı bilgilerini de gönder
-    const metadata = {
-      customerName: `${personalInfo.firstName} ${personalInfo.lastName}`,
-      customerEmail: personalInfo.email,
-      customerPhone: personalInfo.phone,
-      shippingAddress: `${addressInfo.street}, ${addressInfo.city}, ${addressInfo.postalCode}, ${addressInfo.country}`,
-    };
-
     // Stripe ile ödeme niyeti oluştur
     const { secret, error } = await getClientSecret(
       currentAmount,
       items,
-      metadata
+      personalInfo,
+      addressInfo
     );
 
     if (secret) {
@@ -411,10 +425,6 @@ export default function OdemePage() {
 
   useEffect(() => {
     // Sepet boşsa sepet sayfasına yönlendir
-    if (items.length === 0) {
-      router.push("/cart");
-      return;
-    }
 
     setAmount(getTotalPrice());
     setLoading(false);
@@ -430,11 +440,41 @@ export default function OdemePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, router]);
 
-  const handlePaymentSuccess = (id: string) => {
+  const handlePaymentSuccess = async (id: string) => {
     setPaymentId(id);
     setPaymentSuccess(true);
+
+    try {
+      // Sipariş oluşturma endpoint'ini çağır
+      console.log("Sipariş oluşturma isteği yapılıyor...");
+      const response = await axios.post("/api/orders/create", {
+        paymentIntentId: id,
+        items: items,
+        totalAmount: getTotalPrice(),
+        shippingAddress: {
+          firstName: personalInfo.firstName,
+          lastName: personalInfo.lastName,
+          email: personalInfo.email,
+          phone: personalInfo.phone,
+          address: addressInfo.street,
+          city: addressInfo.city,
+          postcode: addressInfo.postalCode,
+          country: addressInfo.country,
+        },
+      });
+
+      console.log("Sipariş oluşturma yanıtı:", response.data);
+      if (response.data.success) {
+        toast.success("Sipariş başarıyla oluşturuldu!");
+      }
+    } catch (error) {
+      console.error("Sipariş oluşturma hatası:", error);
+      // Webhook üzerinden oluşturulacağı için hata göstermeye gerek yok
+    }
+
     // Ödeme başarılı olduğunda sepeti temizle
     clearCart();
+
     // Session storage'ı temizle
     sessionStorage.removeItem("stripe_client_secret");
     sessionStorage.removeItem("stripe_amount");
@@ -717,10 +757,10 @@ export default function OdemePage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/profile/orders")}
               className="bg-blue-600 text-white py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
             >
-              Ana Sayfaya Dön
+              Siparişlerime Git
             </button>
             <button
               onClick={() => router.push("/supplement")}
