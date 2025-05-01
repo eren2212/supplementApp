@@ -39,32 +39,30 @@ export default function CheckoutSuccessPage() {
 
   // URL'den ödeme bilgilerini al
   const paymentIntentId = searchParams.get("payment_intent");
-  const paymentStatus = searchParams.get("status");
+  const sessionId = searchParams.get("session_id");
+  const orderIdFromURL = searchParams.get("order_id");
 
   // LocalStorage'dan teslimat bilgilerini al
   useEffect(() => {
     const createOrder = async () => {
       try {
+        console.log("Sipariş oluşturma akışı başladı:", {
+          paymentIntentId,
+          sessionId,
+          orderIdFromURL,
+          hasItems: items.length > 0,
+        });
+
         // Sepet boşsa ana sayfaya yönlendir
         if (items.length === 0) {
           router.push("/");
           return;
         }
 
-        // Oturum yoksa giriş sayfasına yönlendir
-        if (!session) {
-          router.push("/login");
-          return;
-        }
-
-        // URL'den sipariş ID'sini al (checkout API'den dönüyor)
-        const orderIdFromURL = searchParams.get("order_id");
-        const sessionId = searchParams.get("session_id");
-
         // Ödeme başarılı değilse sepet sayfasına yönlendir
-        if (paymentStatus !== "success" && !orderIdFromURL) {
-          toast.error("Ödeme işlemi başarısız oldu");
-          setError("Ödeme işlemi başarısız oldu. Lütfen tekrar deneyiniz.");
+        if (!sessionId && !orderIdFromURL && !paymentIntentId) {
+          toast.error("Ödeme bilgileri bulunamadı");
+          setError("Ödeme bilgileri bulunamadı. Lütfen tekrar deneyiniz.");
           router.push("/cart");
           return;
         }
@@ -82,48 +80,84 @@ export default function CheckoutSuccessPage() {
 
         try {
           // Eğer sipariş zaten checkout API'de oluşturulduysa, sadece teslimat bilgilerini güncelle
-          if (orderIdFromURL && sessionId) {
-            // Checkout API'den ödeme durumunu doğrula
-            const { data: sessionData } = await axios.get(
-              `/api/checkout?session_id=${sessionId}&order_id=${orderIdFromURL}`
-            );
+          if (orderIdFromURL && (sessionId || paymentIntentId)) {
+            console.log("Mevcut siparişi güncelleme flow'u başladı:", {
+              orderIdFromURL,
+              sessionId: sessionId || paymentIntentId,
+            });
 
-            if (sessionData.success) {
-              // Sipariş zaten oluşturuldu, sadece teslimat bilgilerini güncelle
-              await axios.patch(`/api/orders/${orderIdFromURL}`, {
-                shippingAddress: shippingInfo,
-              });
+            // Parametre olarak hangisi varsa onu kullan
+            const sessionParam = sessionId || paymentIntentId;
 
-              // Sipariş numarasını al
-              setOrderNumber(sessionData.order.orderNumber);
-              setOrderCreated(true);
+            try {
+              // Checkout API'den ödeme durumunu doğrula
+              const { data: sessionData } = await axios.get(
+                `/api/checkout?session_id=${sessionParam}&order_id=${orderIdFromURL}`
+              );
 
-              // Sepeti temizle
-              clearCart();
+              console.log("Checkout API yanıtı:", sessionData);
 
-              // localStorage'dan teslimat bilgilerini temizle
-              localStorage.removeItem("shippingInfo");
+              if (sessionData.success) {
+                // Sipariş zaten oluşturuldu, sadece teslimat bilgilerini güncelle
+                const updateResponse = await axios.patch(
+                  `/api/orders/${orderIdFromURL}`,
+                  {
+                    shippingAddress: shippingInfo,
+                  }
+                );
 
-              // Başarılı mesaj göster
-              toast.success("Siparişiniz başarıyla oluşturuldu!");
+                console.log("Sipariş adresi güncellendi:", updateResponse.data);
 
-              // 3 saniye sonra siparişler sayfasına yönlendir
-              setTimeout(() => {
-                router.push("/profile/orders");
-              }, 3000);
+                // Sipariş numarasını al
+                setOrderNumber(sessionData.order?.orderNumber || "");
+                setOrderCreated(true);
 
-              return;
+                // Sepeti temizle
+                clearCart();
+
+                // localStorage'dan teslimat bilgilerini temizle
+                localStorage.removeItem("shippingInfo");
+
+                // Başarılı mesaj göster
+                toast.success("Siparişiniz başarıyla oluşturuldu!");
+
+                return;
+              }
+            } catch (sessionError: any) {
+              console.error("Session kontrol hatası:", sessionError);
+              console.error("Hata detayları:", sessionError.response?.data);
+              // Hata durumunda yeni sipariş oluşturma akışına devam et
             }
           }
 
           // Eğer yukarıdaki yöntem çalışmadıysa, yeni sipariş oluştur
+          console.log(
+            "Yeni sipariş oluşturma flow'u başladı, payment_intent:",
+            paymentIntentId
+          );
+
+          // Ödeme bilgisi kontrolü
+          if (!paymentIntentId) {
+            setError("Ödeme bilgisi eksik, sipariş oluşturulamadı.");
+            setLoading(false);
+            return;
+          }
+
           const { data } = await axios.post("/api/orders", {
-            items,
+            items: items.map((item) => ({
+              id: item.id,
+              name: item.name || "",
+              imageUrl: item.imageUrl || "",
+              price: item.price || 0,
+              quantity: item.quantity,
+            })),
             totalAmount: getTotalPrice(),
             shippingAddress: shippingInfo,
             paymentIntentId,
             paymentStatus: "completed",
           });
+
+          console.log("Yeni sipariş oluşturuldu:", data);
 
           // Sipariş numarasını kaydet
           setOrderNumber(data.orderNumber);
@@ -137,13 +171,9 @@ export default function CheckoutSuccessPage() {
 
           // Başarılı mesajı göster
           toast.success("Siparişiniz başarıyla oluşturuldu!");
-
-          // 3 saniye sonra siparişler sayfasına yönlendir
-          setTimeout(() => {
-            router.push("/profile/orders");
-          }, 3000);
         } catch (apiError: any) {
           console.error("API hatası:", apiError);
+          console.error("API hata yanıtı:", apiError.response?.data);
           throw apiError;
         }
       } catch (error: any) {
@@ -156,18 +186,12 @@ export default function CheckoutSuccessPage() {
 
         setError(errorMessage);
         toast.error(errorMessage);
-
-        // Hata durumunda 3 saniye sonra profil/orders sayfasına yönlendir
-        // Kullanıcı ödemesi yapıldığı için yine de siparişlere bakabilir
-        setTimeout(() => {
-          router.push("/profile/orders");
-        }, 3000);
       } finally {
         setLoading(false);
       }
     };
 
-    if (paymentIntentId && items.length > 0) {
+    if ((paymentIntentId || sessionId) && items.length > 0) {
       // Kullanıcının oturumu kontrol ediliyor, maksimum 5 saniye bekleyelim
       const checkSessionTimeout = setTimeout(() => {
         if (!session) {
@@ -185,14 +209,11 @@ export default function CheckoutSuccessPage() {
       }
     } else {
       // OrderId URL'de varsa ve session var ise orderı kontrol et
-      const orderIdFromURL = searchParams.get("order_id");
-      const sessionId = searchParams.get("session_id");
-
-      if (orderIdFromURL && sessionId && session) {
+      if (orderIdFromURL && session) {
         createOrder();
       } else {
         setLoading(false);
-        if (!paymentIntentId && !orderIdFromURL) {
+        if (!paymentIntentId && !sessionId && !orderIdFromURL) {
           setError("Ödeme bilgileri bulunamadı. Lütfen tekrar deneyiniz.");
         }
         if (items.length === 0) {
@@ -204,11 +225,11 @@ export default function CheckoutSuccessPage() {
     session,
     items,
     paymentIntentId,
-    paymentStatus,
+    sessionId,
+    orderIdFromURL,
     router,
     getTotalPrice,
     clearCart,
-    searchParams,
   ]);
 
   if (loading) {

@@ -107,96 +107,193 @@ export async function GET(req: NextRequest) {
     const orderId = searchParams.get("order_id");
     const paymentIntent = searchParams.get("payment_intent");
 
-    if (!sessionId || !orderId) {
+    // Session ID veya Order ID boşsa hata döndür
+    if (!sessionId) {
       return NextResponse.json(
-        { error: "Geçersiz session veya order ID" },
+        { error: "Geçersiz session ID" },
         { status: 400 }
       );
     }
 
     try {
-      // Stripe'dan ödeme durumunu kontrol et
+      // Session ID bir payment_intent ID'si ise (pi_ ile başlıyorsa)
+      if (sessionId.startsWith("pi_")) {
+        console.log(
+          "Payment Intent ID algılandı, doğrudan ödeme durumu kontrol ediliyor:",
+          sessionId
+        );
+
+        try {
+          // Payment Intent'i kontrol et
+          const paymentIntentData = await stripe.paymentIntents.retrieve(
+            sessionId
+          );
+
+          // Ödeme başarılı ise
+          if (paymentIntentData.status === "succeeded") {
+            // Eğer OrderID varsa siparişi güncelle
+            if (orderId) {
+              try {
+                const order = await prismadb.order.update({
+                  where: { id: orderId as string },
+                  data: {
+                    status: "processing",
+                  },
+                  include: {
+                    items: true,
+                  },
+                });
+
+                // Ödeme kaydını güncelle
+                await prismadb.payment.upsert({
+                  where: {
+                    paymentIntentId: sessionId,
+                  },
+                  update: {
+                    status: "completed",
+                  },
+                  create: {
+                    userId: order.userId,
+                    paymentIntentId: sessionId,
+                    status: "completed",
+                    amount: order.totalAmount || 0,
+                    description: `Sipariş ödemesi: ${
+                      order.orderNumber || orderId
+                    }`,
+                  },
+                });
+
+                return NextResponse.json({
+                  success: true,
+                  order,
+                  paymentStatus: "paid",
+                });
+              } catch (orderError) {
+                console.error("Sipariş güncellenemedi:", orderError);
+                // Ödeme başarılı olsa bile sipariş güncellenemedi
+                return NextResponse.json({
+                  success: true,
+                  message: "Ödeme başarılı, ancak sipariş güncellenemedi.",
+                  paymentStatus: "paid",
+                });
+              }
+            }
+
+            // OrderID yoksa (Premium üyelik gibi özel durumlar için)
+            return NextResponse.json({
+              success: true,
+              paymentStatus: "paid",
+            });
+          }
+
+          // Ödeme başarısız ise
+          return NextResponse.json({
+            success: false,
+            paymentStatus: paymentIntentData.status,
+          });
+        } catch (paymentIntentError) {
+          console.error("Payment Intent kontrolü hatası:", paymentIntentError);
+          return NextResponse.json(
+            {
+              error: "Ödeme doğrulanamadı",
+              details: paymentIntentError.message,
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      // Normal Checkout Session ID ise
+      console.log("Checkout Session kontrolü yapılıyor:", sessionId);
+
+      // Stripe'dan checkout session'ı kontrol et
       const session = await stripe.checkout.sessions.retrieve(
         sessionId as string
       );
 
       // Ödeme başarılı ise
       if (session.payment_status === "paid") {
-        try {
-          // Siparişi güncelle
-          // @ts-ignore - Prisma şeması Order modelini içeriyor, ancak TypeScript hatası veriyor
-          const order = await prismadb.order.update({
-            where: { id: orderId as string },
-            data: {
-              status: "processing",
-              trackingNumber: null,
-            },
-            include: {
-              items: true,
-            },
-          });
+        // Eğer OrderID varsa siparişi güncelle
+        if (orderId) {
+          try {
+            // Siparişi güncelle
+            const order = await prismadb.order.update({
+              where: { id: orderId as string },
+              data: {
+                status: "processing",
+                trackingNumber: null,
+              },
+              include: {
+                items: true,
+              },
+            });
 
-          // Ödeme kaydını güncelle veya oluştur
-          if (paymentIntent || session.payment_intent) {
-            const paymentIdToUse =
-              paymentIntent || (session.payment_intent as string);
+            // Ödeme kaydını güncelle veya oluştur
+            if (paymentIntent || session.payment_intent) {
+              const paymentIdToUse =
+                paymentIntent || (session.payment_intent as string);
 
-            try {
-              // Önce order'ın total amount'ını hesapla (null olabileceği durumlar için)
-              const orderAmount =
-                order.totalAmount ||
-                order.items.reduce(
-                  (total, item) => total + Number(item.totalPrice),
-                  0
+              try {
+                // Önce order'ın total amount'ını hesapla (null olabileceği durumlar için)
+                const orderAmount =
+                  order.totalAmount ||
+                  order.items.reduce(
+                    (total, item) => total + Number(item.totalPrice),
+                    0
+                  );
+
+                // Ödeme kaydını güncelle
+                await prismadb.payment.upsert({
+                  where: {
+                    paymentIntentId: paymentIdToUse,
+                  },
+                  update: {
+                    status: "completed",
+                  },
+                  create: {
+                    userId: order.userId,
+                    paymentIntentId: paymentIdToUse,
+                    status: "completed",
+                    amount: orderAmount,
+                    description: `Sipariş ödemesi: ${
+                      order.orderNumber || orderId
+                    }`,
+                  },
+                });
+
+                console.log(
+                  `Payment record updated/created for intent: ${paymentIdToUse}`
                 );
-
-              // Sadece payment intent ID güncellemesi yapalım, order ilişkisi kurma işlemini atlayalım
-              await prismadb.payment.upsert({
-                where: {
-                  paymentIntentId: paymentIdToUse,
-                },
-                update: {
-                  status: "completed",
-                },
-                create: {
-                  userId: order.userId,
-                  paymentIntentId: paymentIdToUse,
-                  status: "completed",
-                  amount: orderAmount,
-                  description: `Sipariş ödemesi: ${
-                    order.orderNumber || orderId
-                  }`,
-                },
-              });
-
-              // Loglama yapalım
-              console.log(
-                `Payment record updated/created for intent: ${paymentIdToUse}`
-              );
-            } catch (paymentError) {
-              console.error("Payment record update failed:", paymentError);
-              // Hata durumunda işlemi durdurmayalım
+              } catch (paymentError) {
+                console.error("Payment record update failed:", paymentError);
+                // Hata durumunda işlemi durdurmayalım
+              }
             }
+
+            return NextResponse.json({
+              success: true,
+              order,
+              paymentStatus: session.payment_status,
+            });
+          } catch (orderUpdateError: any) {
+            console.error("[ORDER_UPDATE_ERROR]", orderUpdateError);
+
+            // Siparişi bulamadıysak veya güncelleyemediyse bile başarılı dönelim
+            // Çünkü ödeme başarılı
+            return NextResponse.json({
+              success: true,
+              message:
+                "Ödeme başarılı, ancak sipariş güncellenemedi. Lütfen müşteri hizmetleriyle iletişime geçin.",
+              paymentStatus: session.payment_status,
+            });
           }
-
-          // Sepet çerezini temizle - document.cookie kullanarak istemci tarafında bu işlemi yapalım
-          return NextResponse.json({
-            success: true,
-            order,
-            paymentStatus: session.payment_status,
-          });
-        } catch (orderUpdateError: any) {
-          console.error("[ORDER_UPDATE_ERROR]", orderUpdateError);
-
-          // Siparişi bulamadıysak veya güncelleyemediyse bile başarılı dönelim
-          // Çünkü ödeme başarılı
-          return NextResponse.json({
-            success: true,
-            message:
-              "Ödeme başarılı, ancak sipariş güncellenemedi. Lütfen müşteri hizmetleriyle iletişime geçin.",
-            paymentStatus: session.payment_status,
-          });
         }
+
+        // OrderID yoksa (Premium üyelik gibi özel durumlar için)
+        return NextResponse.json({
+          success: true,
+          paymentStatus: session.payment_status,
+        });
       }
 
       // Ödeme başarısız veya beklemede ise
@@ -206,6 +303,18 @@ export async function GET(req: NextRequest) {
       });
     } catch (stripeError: any) {
       console.error("[STRIPE_ERROR]", stripeError);
+
+      // Eğer bu hata "No such checkout.session" ise ve session ID "pi_" ile başlıyorsa,
+      // payment_intent olarak tekrar denemeyi öner
+      if (
+        stripeError.code === "resource_missing" &&
+        sessionId.startsWith("pi_")
+      ) {
+        console.log(
+          "Bu bir checkout.session değil, payment_intent olabilir. PaymentIntent kontrolü öneriliyor."
+        );
+      }
+
       return NextResponse.json(
         {
           error: "Ödeme doğrulama işlemi sırasında Stripe hatası",
