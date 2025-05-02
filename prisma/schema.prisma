@@ -14,7 +14,8 @@ model User {
   hashedPassword String?
   image          String?
   role           Role       @default(CUSTOMER)
-  address        String?  
+  address        String?    // @deprecated - Artık addresses kullanılıyor
+  addresses      Address[]  // Kullanıcının kayıtlı adresleri
   phone          String?
   stripeCustomerId String?    // Stripe müşteri ID'si
   createdAt      DateTime   @default(now())
@@ -207,4 +208,23 @@ enum OrderStatus {
   completed     // Tamamlandı
   cancelled     // İptal edildi
   returned      // İade edildi
+}
+
+// Kullanıcı adresleri için model
+model Address {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String   @db.ObjectId
+  title       String   // Adres başlığı (Ev, İş vb.)
+  isDefault   Boolean  @default(false) // Varsayılan adres mi?
+  firstName   String   // Ad
+  lastName    String   // Soyad
+  phone       String   // Telefon
+  address     String   // Adres detayı
+  city        String   // İl
+  district    String?  // İlçe
+  postcode    String   // Posta kodu
+  country     String   @default("Türkiye") // Ülke
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 }

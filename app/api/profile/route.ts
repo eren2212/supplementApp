@@ -24,6 +24,25 @@ export async function GET() {
         phone: true,
         image: true,
         role: true,
+        createdAt: true,
+        addresses: {
+          select: {
+            id: true,
+            title: true,
+            isDefault: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            address: true,
+            city: true,
+            district: true,
+            postcode: true,
+            country: true,
+          },
+          orderBy: {
+            isDefault: "desc",
+          },
+        },
       },
     });
 
@@ -68,11 +87,18 @@ export async function POST(req: Request) {
       );
     }
 
-    if (phone && !/^\d{10,15}$/.test(phone)) {
-      return NextResponse.json(
-        { success: false, message: "Geçersiz telefon numarası formatı." },
-        { status: 400 }
-      );
+    if (phone) {
+      const cleaned = phone.replace(/\D/g, "");
+      if (cleaned.length !== 10 || !cleaned.startsWith("5")) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Geçersiz telefon numarası formatı. 5XX XXX XX XX formatında olmalıdır.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Hangi alanların güncelleneceğini tespit et
@@ -96,6 +122,24 @@ export async function POST(req: Request) {
         phone: true,
         image: true,
         role: true,
+        addresses: {
+          select: {
+            id: true,
+            title: true,
+            isDefault: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            address: true,
+            city: true,
+            district: true,
+            postcode: true,
+            country: true,
+          },
+          orderBy: {
+            isDefault: "desc",
+          },
+        },
       },
     });
 
@@ -142,7 +186,7 @@ export async function DELETE() {
     }
 
     // Aktivite kaydı ekle
-    await logActivity(user.id, "account_deletion", "Kullanıcı hesabını sildi");
+    await logActivity(user.id, "ORDER_CANCEL", "Kullanıcı hesabını sildi");
 
     // Kullanıcıyı veritabanından sil
     await prisma.user.delete({

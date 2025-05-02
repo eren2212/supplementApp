@@ -2,6 +2,7 @@
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
 import AccountDeleteButon from "./AccountDeleteButon";
+import AddressesPage from "./AddressesPage";
 import {
   Box,
   Typography,
@@ -223,8 +224,12 @@ const EditableField: React.FC<EditableFieldProps> = ({
       // Telefon numarası doğrulama
       if (type === "phone") {
         const cleaned = fieldValue.replace(/\D/g, "");
-        if (cleaned && (cleaned.length < 10 || cleaned.length > 11)) {
-          setFieldError("Geçerli bir telefon numarası giriniz");
+        if (cleaned && cleaned.length !== 10) {
+          setFieldError("Telefon numarası tam 10 haneli olmalıdır");
+          setIsLoading(false);
+          return;
+        } else if (cleaned && !cleaned.startsWith("5")) {
+          setFieldError("Telefon numarası 5 ile başlamalıdır");
           setIsLoading(false);
           return;
         }
@@ -584,21 +589,26 @@ const formatPhoneNumber = (phone: string) => {
   if (!phone) return "";
 
   // Sadece rakamları al
-  const cleaned = phone.replace(/\D/g, "");
+  const numbers = phone.replace(/\D/g, "");
 
-  // Eğer 10 haneden az ise (başında 0 olmadan), başına 0 ekle
-  const tenDigit =
-    cleaned.length === 10
-      ? cleaned
-      : cleaned.length > 10
-      ? cleaned.substring(cleaned.length - 10)
-      : "0".repeat(10 - cleaned.length) + cleaned;
+  // Eğer başlangıçta 0 varsa kaldır
+  const cleaned = numbers.startsWith("0") ? numbers.substring(1) : numbers;
 
-  // 0544 337 66 15 formatında düzenle
-  const formatted = `${tenDigit.slice(0, 4)} ${tenDigit.slice(
-    4,
-    7
-  )} ${tenDigit.slice(7, 9)} ${tenDigit.slice(9)}`;
+  // Türkiye GSM formatı: 5XX XXX XX XX
+  let formatted = "";
+
+  if (cleaned.length > 0) {
+    formatted += cleaned.substring(0, Math.min(3, cleaned.length));
+  }
+  if (cleaned.length > 3) {
+    formatted += " " + cleaned.substring(3, Math.min(6, cleaned.length));
+  }
+  if (cleaned.length > 6) {
+    formatted += " " + cleaned.substring(6, Math.min(8, cleaned.length));
+  }
+  if (cleaned.length > 8) {
+    formatted += " " + cleaned.substring(8, Math.min(10, cleaned.length));
+  }
 
   return formatted;
 };
@@ -615,11 +625,15 @@ const PhoneInput: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Girilen değeri formatla
-    setFormattedValue(input);
+
+    // Sadece rakamları al ve 10 karakterle sınırla
+    const cleaned = input.replace(/\D/g, "").substring(0, 10);
+    const formatted = formatPhoneNumber(cleaned);
+
+    // Formatlanmış değeri göster
+    setFormattedValue(formatted);
 
     // onChange'e sadece rakamları gönder
-    const cleaned = input.replace(/\D/g, "");
     onChange(cleaned);
   };
 
@@ -629,9 +643,9 @@ const PhoneInput: React.FC<{
       value={formattedValue}
       onChange={handleChange}
       fullWidth
-      placeholder="0544 337 66 15"
+      placeholder="5XX XXX XX XX"
       error={!!error}
-      helperText={error || "Örnek: 0544 337 66 15"}
+      helperText={error || "Örnek: 5XX XXX XX XX"}
       InputProps={{
         startAdornment: (
           <InputAdornment position="start">
@@ -659,7 +673,7 @@ export default function ProfilePage() {
     phone: null,
     image: null,
     role: "CUSTOMER",
-    joinDate: new Date().toISOString(),
+    joinDate: "",
     ordersCount: 0,
     reviewsCount: 0,
     paymentMethods: 0,
@@ -765,7 +779,7 @@ export default function ProfilePage() {
             : null,
         image: session.user?.image || null,
         role: session.user?.role || "CUSTOMER",
-        joinDate: session.user?.joinDate || new Date().toISOString(),
+        joinDate: "",
         accountType: currentAccountType, // Hesap tipini ekle
       });
 
@@ -781,10 +795,17 @@ export default function ProfilePage() {
             );
             const reviewsCount = commentsResponse.data?.count || 0;
 
+            // Veritabanından gelen kullanıcı bilgilerini kontrol et
+            console.log(
+              "API'den gelen kullanıcı bilgileri:",
+              response.data.data
+            );
+
             // Tüm verileri güncelle
             setUserData((prev) => ({
               ...prev,
               ...response.data.data,
+              joinDate: response.data.data.createdAt || prev.joinDate,
               reviewsCount,
               accountType: response.data.data.accountType || prev.accountType,
             }));
@@ -794,6 +815,7 @@ export default function ProfilePage() {
             setUserData((prev) => ({
               ...prev,
               ...response.data.data,
+              joinDate: response.data.data.createdAt || prev.joinDate,
               accountType: response.data.data.accountType || prev.accountType,
             }));
           }
@@ -823,57 +845,80 @@ export default function ProfilePage() {
     setProfileUpdateError(null);
     try {
       // Telefon numarası için özel doğrulama
-      if (field === "phone" && value && !/^\d{10,11}$/.test(value)) {
-        setProfileUpdateError(
-          "Telefon numarası 10-11 hane arasında olmalıdır."
-        );
-        toast.error("Geçersiz telefon numarası");
-        return;
-      }
-
-      const { data } = await api.post("/profile", { [field]: value });
-
-      setUserData((prev) => ({ ...prev, [field]: value }));
-
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          [field]: value,
-        },
-      });
-
-      toast.success("Profil bilgileri başarıyla güncellendi");
-
-      // Profil güncelleme aktivitesi kaydet
-      const fieldNames: Record<string, string> = {
-        name: "İsim",
-        phone: "Telefon",
-        address: "Adres",
-      };
-
-      // Aktivite tipini belirle
-      let activityType: string = "PROFILE_UPDATE";
       if (field === "phone") {
-        activityType = "PHONE_UPDATE";
-      } else if (field === "address") {
-        activityType = "ADDRESS_UPDATE";
+        const cleaned = value.replace(/\D/g, "");
+        if (cleaned && cleaned.length !== 10) {
+          setProfileUpdateError("Telefon numarası tam 10 haneli olmalıdır.");
+          toast.error("Geçersiz telefon numarası");
+          return;
+        } else if (cleaned && !cleaned.startsWith("5")) {
+          setProfileUpdateError("Telefon numarası 5 ile başlamalıdır.");
+          toast.error("Geçersiz telefon numarası");
+          return;
+        }
+        // Temizlenmiş değeri kullan
+        value = cleaned;
       }
 
-      // Aktivite kaydı oluştur
-      await api.post("/activities", {
-        type: activityType,
-        details: `${fieldNames[field]} güncellendi: ${value}`,
-      });
+      // API isteği için try-catch bloğu
+      try {
+        const response = await api.post("/profile", { [field]: value });
 
-      return data;
+        // API yanıtı kontrolü
+        if (!response.data) {
+          throw new Error("Sunucudan geçersiz bir yanıt alındı.");
+        }
+
+        // Başarılı API yanıtı sonrası lokal veriyi güncelle
+        setUserData((prev) => ({ ...prev, [field]: value }));
+
+        // Session güncellemesini denemek yerine, doğrudan başarılı varsayalım
+        // NextAuth oturumu otomatik olarak sıradaki isteklerde güncellenecektir
+        toast.success("Profil bilgileri başarıyla güncellendi");
+
+        // Not: Sayfa yenilendiğinde zaten güncel veriler görünecektir
+        // Session verisini güncelleme işlemi hatalara neden olduğundan atlıyoruz
+
+        // Profil güncelleme aktivitesi kaydet
+        const fieldNames: Record<string, string> = {
+          name: "İsim",
+          phone: "Telefon",
+          address: "Adres",
+        };
+
+        // Aktivite tipini belirle
+        let activityType: string = "PROFILE_UPDATE";
+        if (field === "phone") {
+          activityType = "PHONE_UPDATE";
+        } else if (field === "address") {
+          activityType = "ADDRESS_UPDATE";
+        }
+
+        // Aktivite kaydı oluştur - hata olsa bile ana işlemi etkilemesin
+        try {
+          await api.post("/activities", {
+            type: activityType,
+            details: `${fieldNames[field]} güncellendi: ${value}`,
+          });
+        } catch (activityError) {
+          console.error("Aktivite kaydı oluşturulamadı:", activityError);
+          // Aktivite kaydı oluşturulamazsa ana işlemi etkilemesin
+        }
+      } catch (apiError: any) {
+        console.error("API hatası:", apiError);
+        throw new Error(
+          apiError.response?.data?.message ||
+            "Profil güncellenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin."
+        );
+      }
     } catch (error: any) {
       console.error("Güncelleme hatası:", error);
       setProfileUpdateError(
-        error.response?.data?.message ||
-          "Profil güncelleme sırasında bir hata oluştu."
+        error.message || "Profil güncelleme sırasında bir hata oluştu."
       );
-      toast.error("Profil güncelleme sırasında bir hata oluştu");
+      toast.error(
+        error.message || "Profil güncelleme sırasında bir hata oluştu"
+      );
       throw error;
     }
   };
@@ -1071,6 +1116,15 @@ export default function ProfilePage() {
                 <Tab
                   label="Bilgilerim"
                   icon={<PersonIcon />}
+                  iconPosition="start"
+                  sx={{
+                    borderRadius: "12px 12px 0 0",
+                    textTransform: "none",
+                  }}
+                />
+                <Tab
+                  label="Adreslerim"
+                  icon={<LocationIcon />}
                   iconPosition="start"
                   sx={{
                     borderRadius: "12px 12px 0 0",
@@ -1303,14 +1357,6 @@ export default function ProfilePage() {
                           type="phone"
                         />
 
-                        <EditableField
-                          label="Adres"
-                          value={userData.address || ""}
-                          onEdit={handleEditField("address")}
-                          icon={<LocationIcon />}
-                          type="address"
-                        />
-
                         <Box
                           sx={{
                             display: "flex",
@@ -1463,9 +1509,11 @@ export default function ProfilePage() {
                 </Grid>
               )}
 
-              {activeTab === 1 && <UserActivities />}
+              {activeTab === 1 && <AddressesPage />}
 
-              {activeTab === 2 && (
+              {activeTab === 2 && <UserActivities />}
+
+              {activeTab === 3 && (
                 <Card
                   sx={{
                     borderRadius: "20px",
