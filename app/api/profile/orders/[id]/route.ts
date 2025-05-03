@@ -20,7 +20,7 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const orderId = params.id;
+    const orderId = await params.id;
 
     if (!orderId) {
       return NextResponse.json(

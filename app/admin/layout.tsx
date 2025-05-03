@@ -197,6 +197,12 @@ const mainNavItems = [
     exact: false,
   },
   {
+    name: "Tavsiyeler",
+    icon: <NotificationsActive />,
+    path: "/admin/advices",
+    exact: false,
+  },
+  {
     name: "Yorumlar",
     icon: <Mail />,
     path: "/admin/comments",

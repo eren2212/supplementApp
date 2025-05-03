@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
+import { Advice, Doctor } from "./doctorAdviceStore";
 
 interface Notification {
   id: string;
@@ -41,6 +42,25 @@ interface AdminState {
     isLoading: boolean;
   };
   fetchDashboardData: () => Promise<void>;
+
+  // New fields for doctor advice
+  advices: Advice[];
+  doctors: Doctor[];
+  loading: boolean;
+  error: string | null;
+  adviceSearchQuery: string;
+  adviceCategoryFilter: string;
+  adviceStatusFilter: string;
+  adviceSortBy: string;
+  adviceSortDirection: "asc" | "desc";
+
+  fetchAdminAdvices: () => Promise<void>;
+  deleteAdminAdvice: (adviceId: string) => Promise<void>;
+  setAdviceSearchQuery: (query: string) => void;
+  setAdviceCategoryFilter: (category: string) => void;
+  setAdviceStatusFilter: (status: string) => void;
+  setAdviceSortBy: (field: string, direction: "asc" | "desc") => void;
+  resetAdviceFilters: () => void;
 }
 
 export const useAdminStore = create<AdminState>()(
@@ -159,6 +179,94 @@ export const useAdminStore = create<AdminState>()(
           }));
         }
       },
+
+      // New fields for doctor advice
+      advices: [],
+      doctors: [],
+      loading: false,
+      error: null,
+      adviceSearchQuery: "",
+      adviceCategoryFilter: "",
+      adviceStatusFilter: "",
+      adviceSortBy: "date",
+      adviceSortDirection: "desc",
+
+      fetchAdminAdvices: async () => {
+        set({ loading: true, error: null });
+        try {
+          const advicesRes = await axios.get("/api/admin/advices");
+          set({
+            advices: advicesRes.data,
+            loading: false,
+          });
+        } catch (error: any) {
+          set({
+            error:
+              error.response?.data?.error ||
+              "Tavsiyeler yüklenirken bir hata oluştu",
+            loading: false,
+          });
+          console.error("Tavsiyeleri getirme hatası:", error);
+        }
+      },
+
+      deleteAdminAdvice: async (adviceId) => {
+        set({ loading: true, error: null });
+        try {
+          await axios.delete(`/api/admin/advices/${adviceId}`);
+          // Başarılı silme sonrası state'i güncelle
+          set((state) => ({
+            advices: state.advices.filter((advice) => advice.id !== adviceId),
+            loading: false,
+          }));
+
+          // Bildirim ekle
+          get().addNotification({
+            message: "Tavsiye başarıyla silindi",
+            type: "success",
+            read: false,
+          });
+        } catch (error: any) {
+          set({
+            error:
+              error.response?.data?.error ||
+              "Tavsiye silinirken bir hata oluştu",
+            loading: false,
+          });
+          console.error("Tavsiye silme hatası:", error);
+
+          // Hata bildirimi ekle
+          get().addNotification({
+            message:
+              error.response?.data?.error ||
+              "Tavsiye silinirken bir hata oluştu",
+            type: "error",
+            read: false,
+          });
+        }
+      },
+
+      setAdviceSearchQuery: (query) => set({ adviceSearchQuery: query }),
+
+      setAdviceCategoryFilter: (category) =>
+        set({ adviceCategoryFilter: category }),
+
+      setAdviceStatusFilter: (status) => set({ adviceStatusFilter: status }),
+
+      setAdviceSortBy: (field, direction) =>
+        set({
+          adviceSortBy: field,
+          adviceSortDirection: direction,
+        }),
+
+      resetAdviceFilters: () =>
+        set({
+          adviceSearchQuery: "",
+          adviceCategoryFilter: "",
+          adviceStatusFilter: "",
+          adviceSortBy: "date",
+          adviceSortDirection: "desc",
+        }),
     }),
     {
       name: "admin-store",

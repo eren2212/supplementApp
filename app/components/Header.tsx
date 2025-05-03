@@ -137,6 +137,14 @@ const Header = () => {
                       Paneli Git
                     </button>
                   )}
+                  {session.user.role === "DOCTOR" && (
+                    <button
+                      onClick={() => router.push("/doctor")}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left cursor-pointer"
+                    >
+                      Doktor Paneli
+                    </button>
+                  )}
                   <button
                     onClick={handleSignOut}
                     className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left flex items-center gap-2 cursor-pointer"

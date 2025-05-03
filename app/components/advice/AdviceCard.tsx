@@ -49,10 +49,15 @@ const AdviceCard = ({ advice, doctor }: AdviceCardProps) => {
   };
 
   // Küçük bir özet metni oluştur
-  const summaryText =
-    advice.content.length > 120
-      ? advice.content.substring(0, 120) + "..."
-      : advice.content;
+  const createSummaryText = () => {
+    // Önce HTML etiketlerini kaldırarak düz metni al
+    const plainText = advice.content.replace(/<[^>]*>/g, "");
+    return plainText.length > 120
+      ? plainText.substring(0, 120) + "..."
+      : plainText;
+  };
+
+  const summaryText = createSummaryText();
 
   return (
     <motion.div

@@ -1,160 +1,318 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { use } from "react";
 import {
   Container,
   Box,
-  Button,
   Typography,
-  CircularProgress,
-  Breadcrumbs,
-  Link,
+  Chip,
   Divider,
+  Avatar,
+  Button,
+  Paper,
+  Grid,
+  CircularProgress,
+  Alert,
+  IconButton,
+  useTheme,
 } from "@mui/material";
-import { ArrowBack, NavigateNext } from "@mui/icons-material";
-import AdviceDetail from "@/app/components/advice/AdviceDetail";
-import { useDoctorAdviceStore } from "@/app/store/doctorAdviceStore";
+import {
+  Favorite,
+  FavoriteBorder,
+  ArrowBack,
+  Share,
+} from "@mui/icons-material";
+import Link from "next/link";
+import axios from "axios";
+import { Advice, Doctor } from "@/app/store/doctorAdviceStore";
 import { useRouter } from "next/navigation";
-import type { Advice, Doctor } from "@/app/store/doctorAdviceStore";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import DOMPurify from "isomorphic-dompurify";
 
-const AdviceDetailPage = () => {
+interface AdviceParams {
+  params: {
+    id: string;
+  };
+}
+
+export default function AdviceDetailPage({ params }: AdviceParams) {
+  const theme = useTheme();
   const router = useRouter();
-  const params = useParams();
-  const adviceId = params.id as string;
-
-  const { doctors, advices, loading, error, fetchDoctors, fetchAdvices } =
-    useDoctorAdviceStore();
-
-  const [currentAdvice, setCurrentAdvice] = useState<Advice | null>(null);
-  const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
+  // @ts-ignore - TypeScript hatasını gidermek için
+  const adviceId = use(params).id;
+  const [advice, setAdvice] = useState<Advice | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [liked, setLiked] = useState(false);
 
   useEffect(() => {
-    fetchDoctors();
-    fetchAdvices();
-  }, [fetchDoctors, fetchAdvices]);
-
-  useEffect(() => {
-    if (advices.length > 0 && doctors.length > 0) {
-      const advice = advices.find((a) => a.id === Number(adviceId));
-
-      if (advice) {
-        setCurrentAdvice(advice);
-        const doctor = doctors.find((d) => d.id === advice.doctorId);
-        if (doctor) {
-          setCurrentDoctor(doctor);
-        }
+    const fetchAdvice = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(`/api/public/advices/${adviceId}`);
+        setAdvice(response.data);
+        setLoading(false);
+      } catch (error: any) {
+        console.error("Error fetching advice:", error);
+        setError(error.response?.data?.error || "Tavsiye bilgisi yüklenemedi.");
+        setLoading(false);
       }
-    }
-  }, [adviceId, advices, doctors]);
+    };
 
-  const handleGoBack = () => {
-    router.back();
+    fetchAdvice();
+  }, [adviceId]);
+
+  const handleLike = async () => {
+    if (!advice) return;
+
+    try {
+      const response = await axios.patch(`/api/public/advices/${advice.id}`);
+      setAdvice({
+        ...advice,
+        likes: response.data.likes,
+      });
+      setLiked(true);
+    } catch (error) {
+      console.error("Error liking advice:", error);
+    }
+  };
+
+  const handleShare = () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({
+        title: advice?.title,
+        text: `${advice?.title} - ${advice?.doctor?.name} tavsiyesi`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      navigator.clipboard.writeText(window.location.href);
+      alert("Bağlantı panoya kopyalandı!");
+    }
   };
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            height: "60vh",
-          }}
-        >
-          <CircularProgress />
-        </Box>
+      <Container maxWidth="lg" sx={{ py: 8, textAlign: "center" }}>
+        <CircularProgress />
       </Container>
     );
   }
 
-  if (error || !currentAdvice || !currentDoctor) {
+  if (error || !advice) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Button startIcon={<ArrowBack />} onClick={handleGoBack} sx={{ mb: 4 }}>
-          Tavsiyelere Geri Dön
-        </Button>
-        <Box sx={{ py: 8, textAlign: "center" }}>
-          <Typography variant="h5" color="error" gutterBottom>
-            Tavsiye Bulunamadı
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Aradığınız tavsiye bulunamadı veya bir hata oluştu.
-          </Typography>
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Alert severity="error">{error || "Tavsiye bulunamadı."}</Alert>
+        <Box sx={{ mt: 3 }}>
+          <Button
+            component={Link}
+            href="/advice"
+            startIcon={<ArrowBack />}
+            variant="outlined"
+          >
+            Tüm Tavsiyelere Dön
+          </Button>
         </Box>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 6 }}>
-      {/* Geri dönüş butonu ve breadcrumbs */}
-      <Box sx={{ mb: 4 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={handleGoBack}
-          sx={{
-            mb: 2,
-            borderRadius: "8px",
-            textTransform: "none",
-            "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
-          }}
-        >
-          Tavsiyelere Geri Dön
-        </Button>
+    <Container maxWidth="lg" sx={{ py: 5 }}>
+      <Button
+        component={Link}
+        href="/advice"
+        startIcon={<ArrowBack />}
+        sx={{ mb: 3 }}
+        variant="outlined"
+      >
+        Tüm Tavsiyelere Dön
+      </Button>
 
-        <Breadcrumbs
-          separator={<NavigateNext fontSize="small" />}
-          aria-label="breadcrumb"
-        >
-          <Link
-            color="inherit"
-            href="/advice"
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Paper
             sx={{
-              textDecoration: "none",
-              "&:hover": { textDecoration: "underline" },
+              p: 4,
+              borderRadius: 2,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
             }}
           >
-            Tavsiyeler
-          </Link>
-          <Link
-            color="inherit"
-            href={`/advice?category=${currentAdvice.category}`}
+            {/* Kategori ve Tarih */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Chip
+                label={advice.category}
+                color={
+                  advice.category === "Vitamin"
+                    ? "primary"
+                    : advice.category === "Mineral"
+                    ? "success"
+                    : advice.category === "Yağ Asitleri"
+                    ? "info"
+                    : advice.category === "Antioksidan"
+                    ? "secondary"
+                    : advice.category === "Sindirim"
+                    ? "warning"
+                    : "default"
+                }
+                sx={{ fontWeight: 600, borderRadius: "12px" }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {format(new Date(advice.date), "d MMMM yyyy", { locale: tr })}
+              </Typography>
+            </Box>
+
+            {/* Başlık */}
+            <Typography
+              variant="h4"
+              component="h1"
+              gutterBottom
+              fontWeight="bold"
+              color="primary.dark"
+              sx={{ my: 2 }}
+            >
+              {advice.title}
+            </Typography>
+
+            {/* Görsel (varsa) */}
+            {advice.imageUrl && (
+              <Box sx={{ mb: 3, borderRadius: 2, overflow: "hidden" }}>
+                <img
+                  src={advice.imageUrl}
+                  alt={advice.title}
+                  style={{
+                    width: "100%",
+                    maxHeight: "400px",
+                    objectFit: "cover",
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* İçerik */}
+            <Typography
+              variant="body1"
+              sx={{ mb: 4, lineHeight: 1.8 }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(advice.content),
+              }}
+            />
+
+            {/* Beğeni ve Paylaşım */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 4,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <IconButton
+                  onClick={handleLike}
+                  color={liked ? "error" : "default"}
+                  sx={{ mr: 1 }}
+                >
+                  {liked ? <Favorite /> : <FavoriteBorder />}
+                </IconButton>
+                <Typography variant="body2" color="text.secondary">
+                  {advice.likes} beğeni
+                </Typography>
+              </Box>
+
+              <Button
+                startIcon={<Share />}
+                variant="outlined"
+                onClick={handleShare}
+                size="small"
+              >
+                Paylaş
+              </Button>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Doktor Bilgisi Sidebar */}
+        <Grid item xs={12} md={4}>
+          <Paper
             sx={{
-              textDecoration: "none",
-              "&:hover": { textDecoration: "underline" },
+              p: 3,
+              borderRadius: 2,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              position: "sticky",
+              top: 100,
             }}
           >
-            {currentAdvice.category}
-          </Link>
-          <Typography color="text.primary">{currentAdvice.title}</Typography>
-        </Breadcrumbs>
-      </Box>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                pb: 2,
+                borderBottom: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              Doktor Bilgisi
+            </Typography>
 
-      <Divider sx={{ mb: 4 }} />
+            <Box sx={{ display: "flex", alignItems: "center", my: 2 }}>
+              <Avatar
+                src={advice.doctor?.image}
+                alt={advice.doctor?.name}
+                sx={{
+                  width: 80,
+                  height: 80,
+                  mr: 2,
+                  border: "3px solid white",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                }}
+              />
+              <Box>
+                <Typography variant="h6" fontWeight="bold">
+                  {advice.doctor?.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {advice.doctor?.title}
+                </Typography>
+                <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
+                  {advice.doctor?.specialty}
+                </Typography>
+              </Box>
+            </Box>
 
-      {/* Tavsiye detayı */}
-      <AdviceDetail advice={currentAdvice} doctor={currentDoctor} />
+            <Divider sx={{ my: 2 }} />
 
-      {/* İlgili Tavsiyeler */}
-      <Box sx={{ mt: 6 }}>
-        <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>
-          İlgili Tavsiyeler
-        </Typography>
-        <Divider sx={{ mb: 3 }} />
+            <Typography variant="body2" paragraph>
+              {advice.doctor?.bio ||
+                "Sağlık ve takviyeler konusunda uzman doktor."}
+            </Typography>
 
-        {/* Burada ilgili tavsiyeleri listeleyen bir bileşen eklenebilir */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ textAlign: "center", py: 3 }}
-        >
-          Bu kategoride başka tavsiyeler bulunmuyor.
-        </Typography>
-      </Box>
+            <Button
+              variant="contained"
+              fullWidth
+              color="primary"
+              sx={{
+                mt: 2,
+                borderRadius: "8px",
+                py: 1,
+                fontWeight: 600,
+              }}
+              component={Link}
+              href={`mailto:${advice.doctor?.email || "contact@example.com"}`}
+            >
+              İletişime Geç
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
-};
-
-export default AdviceDetailPage;
+}

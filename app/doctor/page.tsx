@@ -106,7 +106,7 @@ const DoctorDashboard = () => {
     authenticateUser();
   }, [fetchDoctorAdvices, setUserDoctorId]);
 
-  const handleDeleteAdvice = async (adviceId: number) => {
+  const handleDeleteAdvice = async (adviceId: string) => {
     if (window.confirm("Bu tavsiyeyi silmek istediğinize emin misiniz?")) {
       setDeleteLoading(true);
       try {
@@ -199,101 +199,76 @@ const DoctorDashboard = () => {
             </Avatar>
           </Grid>
           <Grid item xs>
-            <Typography
-              variant="h4"
-              component="h1"
-              fontWeight="bold"
-              gutterBottom
-            >
-              Doktor Dashboard
+            <Typography variant="h4" fontWeight="bold" gutterBottom>
+              Doktor Paneli
             </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Tavsiyelerinizi yönetin ve sağlık bilgilerinizi paylaşın
+            <Typography variant="body1" color="text.secondary">
+              Tavsiyelerinizi yönetin, oluşturun ve paylaşın
             </Typography>
           </Grid>
           <Grid item>
-            <Link href="/doctor/advices/create" passHref>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1.2,
-                  boxShadow: `0px 4px 14px ${alpha(
-                    theme.palette.primary.main,
-                    0.25
-                  )}`,
-                }}
-              >
-                Yeni Tavsiye
-              </Button>
-            </Link>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              component={Link}
+              href="/doctor/advices/create"
+              sx={{
+                background: "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                boxShadow: "0 3px 5px 2px rgba(33, 203, 243, .3)",
+              }}
+            >
+              Yeni Tavsiye Ekle
+            </Button>
           </Grid>
         </Grid>
       </Box>
 
-      {/* İstatistik Kartları */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Dashboard Kart İstatistikleri */}
+      <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
           <Card
             sx={{
               height: "100%",
-              borderRadius: 4,
-              boxShadow: `0px 4px 12px ${alpha(
-                theme.palette.primary.main,
-                0.1
-              )}`,
-              position: "relative",
-              overflow: "hidden",
-              transition:
-                "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 2,
+              boxShadow: 3,
+              transition: "transform 0.3s",
               "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: `0px 8px 20px ${alpha(
-                  theme.palette.primary.main,
-                  0.2
-                )}`,
-              },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "4px",
-                backgroundColor: theme.palette.primary.main,
+                transform: "translateY(-5px)",
               },
             }}
           >
-            <CardContent>
-              <Box
+            <CardContent sx={{ flexGrow: 1 }}>
+              <Avatar
                 sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  color: theme.palette.primary.main,
+                  width: 56,
+                  height: 56,
+                  mb: 2,
                 }}
               >
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight="medium"
-                >
-                  Toplam Tavsiye
-                </Typography>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: theme.palette.primary.main,
-                  }}
-                >
-                  <MedicalServices />
-                </Avatar>
-              </Box>
-              <Typography variant="h3" component="div" fontWeight="bold">
+                <MedicalInformation />
+              </Avatar>
+              <Typography
+                gutterBottom
+                variant="h4"
+                component="div"
+                fontWeight="bold"
+              >
                 {stats.totalAdvices}
               </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Toplam Tavsiye
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -302,120 +277,38 @@ const DoctorDashboard = () => {
           <Card
             sx={{
               height: "100%",
-              borderRadius: 4,
-              boxShadow: `0px 4px 12px ${alpha(theme.palette.error.main, 0.1)}`,
-              position: "relative",
-              overflow: "hidden",
-              transition:
-                "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 2,
+              boxShadow: 3,
+              transition: "transform 0.3s",
               "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: `0px 8px 20px ${alpha(
-                  theme.palette.error.main,
-                  0.2
-                )}`,
-              },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "4px",
-                backgroundColor: theme.palette.error.main,
+                transform: "translateY(-5px)",
               },
             }}
           >
-            <CardContent>
-              <Box
+            <CardContent sx={{ flexGrow: 1 }}>
+              <Avatar
                 sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  color: theme.palette.success.main,
+                  width: 56,
+                  height: 56,
+                  mb: 2,
                 }}
               >
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight="medium"
-                >
-                  Toplam Beğeni
-                </Typography>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.error.main, 0.1),
-                    color: theme.palette.error.main,
-                  }}
-                >
-                  <ThumbUp />
-                </Avatar>
-              </Box>
-              <Typography variant="h3" component="div" fontWeight="bold">
+                <ThumbUp />
+              </Avatar>
+              <Typography
+                gutterBottom
+                variant="h4"
+                component="div"
+                fontWeight="bold"
+              >
                 {stats.totalLikes}
               </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card
-            sx={{
-              height: "100%",
-              borderRadius: 4,
-              boxShadow: `0px 4px 12px ${alpha(
-                theme.palette.success.main,
-                0.1
-              )}`,
-              position: "relative",
-              overflow: "hidden",
-              transition:
-                "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
-              "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: `0px 8px 20px ${alpha(
-                  theme.palette.success.main,
-                  0.2
-                )}`,
-              },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "4px",
-                backgroundColor: theme.palette.success.main,
-              },
-            }}
-          >
-            <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
-                }}
-              >
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight="medium"
-                >
-                  Yayınlanan
-                </Typography>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.success.main, 0.1),
-                    color: theme.palette.success.main,
-                  }}
-                >
-                  <VisibilityIcon />
-                </Avatar>
-              </Box>
-              <Typography variant="h3" component="div" fontWeight="bold">
-                {stats.publishedAdvices}
+              <Typography variant="body2" color="text.secondary">
+                Toplam Beğeni
               </Typography>
             </CardContent>
           </Card>
@@ -425,178 +318,107 @@ const DoctorDashboard = () => {
           <Card
             sx={{
               height: "100%",
-              borderRadius: 4,
-              boxShadow: `0px 4px 12px ${alpha(theme.palette.info.main, 0.1)}`,
-              position: "relative",
-              overflow: "hidden",
-              transition:
-                "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 2,
+              boxShadow: 3,
+              transition: "transform 0.3s",
               "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: `0px 8px 20px ${alpha(
-                  theme.palette.info.main,
-                  0.2
-                )}`,
-              },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "4px",
-                backgroundColor: theme.palette.info.main,
+                transform: "translateY(-5px)",
               },
             }}
           >
-            <CardContent>
-              <Box
+            <CardContent sx={{ flexGrow: 1 }}>
+              <Avatar
                 sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
+                  backgroundColor: alpha(theme.palette.info.main, 0.1),
+                  color: theme.palette.info.main,
+                  width: 56,
+                  height: 56,
+                  mb: 2,
                 }}
               >
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight="medium"
-                >
-                  Taslaklar
-                </Typography>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.info.main, 0.1),
-                    color: theme.palette.info.main,
-                  }}
-                >
-                  <AutoGraph />
-                </Avatar>
-              </Box>
-              <Typography variant="h3" component="div" fontWeight="bold">
+                <AutoGraph />
+              </Avatar>
+              <Typography
+                gutterBottom
+                variant="h4"
+                component="div"
+                fontWeight="bold"
+              >
+                {stats.publishedAdvices}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Yayınlanan Tavsiye
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 2,
+              boxShadow: 3,
+              transition: "transform 0.3s",
+              "&:hover": {
+                transform: "translateY(-5px)",
+              },
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1 }}>
+              <Avatar
+                sx={{
+                  backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                  color: theme.palette.warning.main,
+                  width: 56,
+                  height: 56,
+                  mb: 2,
+                }}
+              >
+                <MedicalServices />
+              </Avatar>
+              <Typography
+                gutterBottom
+                variant="h4"
+                component="div"
+                fontWeight="bold"
+              >
                 {stats.draftAdvices}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Taslak Tavsiye
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Ana İçerik */}
-      <Paper
-        sx={{
-          borderRadius: 4,
-          boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.05)",
-          overflow: "hidden",
-        }}
-      >
-        <Box
-          sx={{
-            p: 3,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexDirection: isMobile ? "column" : "row",
-            gap: 2,
-            backgroundColor: alpha(theme.palette.primary.main, 0.03),
-            borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <LocalHospital
-              sx={{
-                color: theme.palette.primary.main,
-                mr: 1.5,
-                fontSize: 28,
-              }}
-            />
-            <Typography variant="h5" component="h2" fontWeight="bold">
-              Tavsiyelerim
-            </Typography>
-          </Box>
+      {/* Tavsiyeler Listesi */}
+      <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2, mb: 4 }}>
+        <Typography variant="h5" gutterBottom fontWeight="bold">
+          Tavsiyeleriniz
+        </Typography>
 
-          <Link href="/doctor/advices/create" passHref>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              sx={{
-                borderRadius: 8,
-                px: 3,
-                boxShadow: `0px 4px 14px ${alpha(
-                  theme.palette.primary.main,
-                  0.25
-                )}`,
-                background: theme.palette.primary.main,
-                "&:hover": {
-                  background: theme.palette.primary.dark,
-                },
-              }}
-            >
-              Yeni Tavsiye Ekle
-            </Button>
-          </Link>
-        </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ m: 3 }}>
-            {error}
-          </Alert>
-        )}
+        <Divider sx={{ my: 2 }} />
 
         {loading ? (
-          <Box sx={{ p: 4 }}>
-            <LinearProgress sx={{ mb: 2 }} />
-            <Typography align="center" color="text.secondary" sx={{ mt: 2 }}>
-              Tavsiyeler yükleniyor...
-            </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+            <CircularProgress />
           </Box>
-        ) : doctorAdvices.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 8, px: 3 }}>
-            <MedicalServices
-              sx={{
-                fontSize: 60,
-                color: alpha(theme.palette.primary.main, 0.2),
-                mb: 2,
-              }}
-            />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Henüz hiç tavsiyeniz bulunmuyor
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mb: 3, maxWidth: 500, mx: "auto" }}
-            >
-              "Yeni Tavsiye Ekle" butonuna tıklayarak ilk tavsiyenizi
-              oluşturabilir ve deneyimlerinizi paylaşabilirsiniz.
-            </Typography>
-            <Link href="/doctor/advices/create" passHref>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                sx={{ borderRadius: 8, px: 3 }}
-              >
-                İlk Tavsiyeni Oluştur
-              </Button>
-            </Link>
-          </Box>
-        ) : (
-          <TableContainer sx={{ pb: 1 }}>
-            <Table aria-label="tavsiyeler tablosu">
+        ) : doctorAdvices.length > 0 ? (
+          <TableContainer>
+            <Table sx={{ minWidth: 650 }}>
               <TableHead>
-                <TableRow
-                  sx={{
-                    "& th": {
-                      fontWeight: 600,
-                      py: 2,
-                    },
-                  }}
-                >
+                <TableRow>
                   <TableCell>Başlık</TableCell>
                   <TableCell>Kategori</TableCell>
-                  <TableCell>Tarih</TableCell>
-                  <TableCell>Beğeni</TableCell>
                   <TableCell>Durum</TableCell>
+                  <TableCell>Ekleme Tarihi</TableCell>
+                  <TableCell>Beğeni</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
@@ -604,61 +426,43 @@ const DoctorDashboard = () => {
                 {doctorAdvices.map((advice) => (
                   <TableRow
                     key={advice.id}
-                    hover
                     sx={{
-                      "&:hover": {
-                        bgcolor: alpha(theme.palette.primary.main, 0.03),
-                      },
+                      "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
                     }}
                   >
-                    <TableCell
-                      sx={{
-                        maxWidth: 250,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {advice.title}
+                    <TableCell component="th" scope="row">
+                      <Typography
+                        variant="body2"
+                        fontWeight="medium"
+                        sx={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: {
+                            xs: "150px",
+                            sm: "250px",
+                            md: "300px",
+                          },
+                        }}
+                      >
+                        {advice.title}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={advice.category}
                         size="small"
                         sx={{
-                          bgcolor: alpha(
+                          backgroundColor: alpha(
                             getCategoryColor(advice.category),
                             0.1
                           ),
                           color: getCategoryColor(advice.category),
                           fontWeight: "medium",
-                          borderRadius: "6px",
-                          px: 0.5,
                         }}
                       />
-                    </TableCell>
-                    <TableCell>{formatDate(advice.date)}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <ThumbUp
-                          fontSize="small"
-                          sx={{
-                            mr: 1,
-                            color: theme.palette.error.main,
-                            opacity: 0.7,
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          fontWeight={advice.likes > 0 ? "bold" : "normal"}
-                          color={
-                            advice.likes > 0 ? "error.main" : "text.secondary"
-                          }
-                        >
-                          {advice.likes}
-                        </Typography>
-                      </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -667,87 +471,97 @@ const DoctorDashboard = () => {
                             ? "Yayında"
                             : advice.status === "draft"
                             ? "Taslak"
-                            : advice.status === "pending"
-                            ? "Onay Bekliyor"
-                            : "Bilinmiyor"
+                            : "Beklemede"
                         }
                         size="small"
                         sx={{
-                          bgcolor: alpha(getStatusColor(advice.status), 0.1),
-                          color: getStatusColor(advice.status),
+                          backgroundColor: alpha(
+                            getStatusColor(advice.status || "draft"),
+                            0.1
+                          ),
+                          color: getStatusColor(advice.status || "draft"),
                           fontWeight: "medium",
-                          borderRadius: "6px",
-                          px: 0.5,
                         }}
                       />
                     </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                        <Tooltip title="Görüntüle">
-                          <Link href={`/advice/${advice.id}`} passHref>
-                            <IconButton
-                              size="small"
-                              sx={{
-                                mr: 1,
-                                color: theme.palette.info.main,
-                                bgcolor: alpha(theme.palette.info.main, 0.1),
-                                "&:hover": {
-                                  bgcolor: alpha(theme.palette.info.main, 0.2),
-                                },
-                              }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Link>
-                        </Tooltip>
-
-                        <Tooltip title="Düzenle">
-                          <Link
-                            href={`/doctor/advices/edit/${advice.id}`}
-                            passHref
-                          >
-                            <IconButton
-                              size="small"
-                              sx={{
-                                mr: 1,
-                                color: theme.palette.primary.main,
-                                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                "&:hover": {
-                                  bgcolor: alpha(
-                                    theme.palette.primary.main,
-                                    0.2
-                                  ),
-                                },
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Link>
-                        </Tooltip>
-
-                        <Tooltip title="Sil">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteAdvice(advice.id)}
-                            disabled={deleteLoading}
-                            sx={{
-                              color: theme.palette.error.main,
-                              bgcolor: alpha(theme.palette.error.main, 0.1),
-                              "&:hover": {
-                                bgcolor: alpha(theme.palette.error.main, 0.2),
-                              },
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                    <TableCell>{formatDate(advice.date)}</TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <ThumbUp
+                          fontSize="small"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            mr: 0.5,
+                            fontSize: "0.875rem",
+                          }}
+                        />
+                        {advice.likes}
                       </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Düzenle">
+                        <IconButton
+                          component={Link}
+                          href={`/doctor/advices/edit/${advice.id}`}
+                          size="small"
+                          sx={{ mr: 1 }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Sil">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteAdvice(advice.id)}
+                          disabled={deleteLoading}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+        ) : (
+          <Box
+            sx={{
+              p: 3,
+              textAlign: "center",
+              border: `1px dashed ${theme.palette.divider}`,
+              borderRadius: 2,
+            }}
+          >
+            <MedicalInformation
+              sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+            />
+            <Typography variant="h6" gutterBottom>
+              Henüz tavsiye eklenmedi
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              paragraph
+              sx={{ mb: 3 }}
+            >
+              Hastalarınıza takviyeler hakkında tavsiyeler vermek için ilk
+              tavsinenizi ekleyin.
+            </Typography>
+            <Button
+              variant="contained"
+              component={Link}
+              href="/doctor/advices/create"
+              startIcon={<AddIcon />}
+            >
+              Tavsiye Ekle
+            </Button>
+          </Box>
         )}
       </Paper>
     </Container>

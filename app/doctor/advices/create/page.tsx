@@ -5,209 +5,150 @@ import { useRouter } from "next/navigation";
 import {
   Container,
   Typography,
-  Box,
-  Paper,
   TextField,
+  Box,
   Button,
+  Paper,
+  Grid,
+  MenuItem,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Grid,
-  Alert,
-  Divider,
   FormHelperText,
   CircularProgress,
-  IconButton,
+  Alert,
+  Divider,
+  useTheme,
 } from "@mui/material";
-import {
-  Save as SaveIcon,
-  ArrowBack as ArrowBackIcon,
-  DeleteOutline as DeleteOutlineIcon,
-} from "@mui/icons-material";
+import { Save as SaveIcon, ArrowBack, Send } from "@mui/icons-material";
+import axios from "axios";
+import { adviceCategories } from "@/app/store/doctorAdviceStore";
+import { useFormik } from "formik";
+import * as yup from "yup";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import {
-  useDoctorAdviceStore,
-  adviceCategories,
-  NewAdvice,
-} from "@/app/store/doctorAdviceStore";
 
-const CreateAdvicePage = () => {
+// CKEditor dinamik olarak yüklenir (yalnızca istemci tarafında)
+const CKEditor = dynamic(() => import("@/app/components/CKEditor"), {
+  ssr: false,
+  loading: () => <p>Editor yükleniyor...</p>,
+});
+
+// Form doğrulama şeması
+const validationSchema = yup.object({
+  title: yup
+    .string()
+    .required("Başlık gereklidir")
+    .min(5, "Başlık en az 5 karakter olmalıdır")
+    .max(100, "Başlık en fazla 100 karakter olmalıdır"),
+  content: yup
+    .string()
+    .required("İçerik gereklidir")
+    .min(50, "İçerik en az 50 karakter olmalıdır"),
+  category: yup.string().required("Kategori seçimi gereklidir"),
+  imageUrl: yup.string().url("Geçerli bir URL girilmelidir").nullable(),
+});
+
+export default function CreateAdvicePage() {
+  const theme = useTheme();
   const router = useRouter();
-  const { addAdvice, loading, error, userDoctorId } = useDoctorAdviceStore();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState<Omit<NewAdvice, "doctorId">>({
-    title: "",
-    content: "",
-    category: "",
-    status: "published",
+  const formik = useFormik({
+    initialValues: {
+      title: "",
+      content: "",
+      category: "",
+      imageUrl: "",
+      status: "draft", // Varsayılan durum: taslak
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        // API'ye yeni tavsiye gönder
+        await axios.post("/api/doctor/advices", values);
+
+        // Başarılı olduğunda doktor paneline yönlendir
+        router.push("/doctor");
+        router.refresh();
+      } catch (error: any) {
+        console.error("Tavsiye ekleme hatası:", error);
+        setError(
+          error.response?.data?.error || "Tavsiye eklenirken bir hata oluştu"
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
   });
 
-  const [formErrors, setFormErrors] = useState({
-    title: "",
-    content: "",
-    category: "",
-  });
-
-  const validateForm = (): boolean => {
-    let isValid = true;
-    const errors = {
-      title: "",
-      content: "",
-      category: "",
-    };
-
-    // Validate title
-    if (!formData.title.trim()) {
-      errors.title = "Başlık gereklidir";
-      isValid = false;
-    } else if (formData.title.length < 5) {
-      errors.title = "Başlık en az 5 karakter olmalıdır";
-      isValid = false;
-    }
-
-    // Validate content
-    if (!formData.content.trim()) {
-      errors.content = "İçerik gereklidir";
-      isValid = false;
-    } else if (formData.content.length < 50) {
-      errors.content = "İçerik en az 50 karakter olmalıdır";
-      isValid = false;
-    }
-
-    // Validate category
-    if (!formData.category) {
-      errors.category = "Kategori seçilmelidir";
-      isValid = false;
-    }
-
-    setFormErrors(errors);
-    return isValid;
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-
-    // Clear error when field is edited
-    if (formErrors[name as keyof typeof formErrors]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: "",
-      });
-    }
-  };
-
-  const handleSelectChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-
-    // Clear error when field is edited
-    if (formErrors[name as keyof typeof formErrors]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: "",
-      });
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    if (!userDoctorId) {
-      alert("Oturum açan doktor bilgisi bulunamadı!");
-      return;
-    }
-
-    try {
-      const newAdvice: NewAdvice = {
-        ...formData,
-        doctorId: userDoctorId,
-      };
-
-      await addAdvice(newAdvice);
-
-      // Başarılı olduktan sonra dashboard'a yönlendir
-      router.push("/doctor");
-    } catch (error) {
-      console.error("Tavsiye eklenirken hata oluştu:", error);
-    }
-  };
-
-  const handleClear = () => {
-    setFormData({
-      title: "",
-      content: "",
-      category: "",
-      status: "published",
-    });
-    setFormErrors({
-      title: "",
-      content: "",
-      category: "",
-    });
+  // Tavsiye durumunu değiştirir (yayınla veya taslak olarak kaydet)
+  const handleStatusChange = (status: string) => {
+    formik.setFieldValue("status", status);
+    formik.handleSubmit();
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      <Box sx={{ mb: 4, display: "flex", alignItems: "center" }}>
-        <Link href="/doctor" passHref>
-          <IconButton sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-        </Link>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          Yeni Tavsiye Ekle
-        </Typography>
-      </Box>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+          <Link href="/doctor" passHref>
+            <Button variant="outlined" startIcon={<ArrowBack />} sx={{ mr: 2 }}>
+              Geri Dön
+            </Button>
+          </Link>
+          <Typography variant="h5" component="h1">
+            Yeni Tavsiye Ekle
+          </Typography>
+        </Box>
 
-      <Paper sx={{ p: 4, borderRadius: 2 }}>
+        <Divider sx={{ mb: 3 }} />
+
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={formik.handleSubmit}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <TextField
-                label="Tavsiye Başlığı"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
                 fullWidth
-                required
-                error={!!formErrors.title}
-                helperText={formErrors.title}
-                disabled={loading}
-                inputProps={{ maxLength: 100 }}
-                sx={{ mb: 2 }}
+                id="title"
+                name="title"
+                label="Tavsiye Başlığı"
+                variant="outlined"
+                value={formik.values.title}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.touched.title && Boolean(formik.errors.title)}
+                helperText={formik.touched.title && formik.errors.title}
+                disabled={isSubmitting}
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!formErrors.category} required>
+              <FormControl
+                fullWidth
+                error={
+                  formik.touched.category && Boolean(formik.errors.category)
+                }
+              >
                 <InputLabel id="category-label">Kategori</InputLabel>
                 <Select
                   labelId="category-label"
                   id="category"
                   name="category"
-                  value={formData.category}
-                  onChange={handleSelectChange}
-                  disabled={loading}
+                  label="Kategori"
+                  value={formik.values.category}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  disabled={isSubmitting}
                 >
                   {adviceCategories.map((category) => (
                     <MenuItem key={category} value={category}>
@@ -215,87 +156,79 @@ const CreateAdvicePage = () => {
                     </MenuItem>
                   ))}
                 </Select>
-                {formErrors.category && (
-                  <FormHelperText>{formErrors.category}</FormHelperText>
+                {formik.touched.category && formik.errors.category && (
+                  <FormHelperText>{formik.errors.category}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel id="status-label">Durum</InputLabel>
-                <Select
-                  labelId="status-label"
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleSelectChange}
-                  disabled={loading}
-                >
-                  <MenuItem value="published">Yayınla</MenuItem>
-                  <MenuItem value="draft">Taslak Olarak Kaydet</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                id="imageUrl"
+                name="imageUrl"
+                label="Görsel URL (isteğe bağlı)"
+                variant="outlined"
+                value={formik.values.imageUrl}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={
+                  formik.touched.imageUrl && Boolean(formik.errors.imageUrl)
+                }
+                helperText={formik.touched.imageUrl && formik.errors.imageUrl}
+                disabled={isSubmitting}
+              />
             </Grid>
 
             <Grid item xs={12}>
-              <TextField
-                label="Tavsiye İçeriği"
-                name="content"
-                value={formData.content}
-                onChange={handleInputChange}
-                fullWidth
-                required
-                multiline
-                rows={10}
-                error={!!formErrors.content}
-                helperText={
-                  formErrors.content ||
-                  `${formData.content.length} karakter (minimum 50 karakter gerekli)`
+              <Typography variant="subtitle1" gutterBottom>
+                Tavsiye İçeriği
+              </Typography>
+              <CKEditor
+                value={formik.values.content}
+                onChange={(content: string) =>
+                  formik.setFieldValue("content", content)
                 }
-                disabled={loading}
+                disabled={isSubmitting}
               />
+              {formik.touched.content && formik.errors.content && (
+                <FormHelperText error>
+                  {formik.errors.content as string}
+                </FormHelperText>
+              )}
+            </Grid>
+
+            <Grid
+              item
+              xs={12}
+              sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}
+            >
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<SaveIcon />}
+                onClick={() => handleStatusChange("draft")}
+                disabled={isSubmitting || !formik.isValid}
+              >
+                {isSubmitting ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Taslak Olarak Kaydet"
+                )}
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                endIcon={<Send />}
+                onClick={() => handleStatusChange("published")}
+                disabled={isSubmitting || !formik.isValid}
+              >
+                {isSubmitting ? <CircularProgress size={24} /> : "Yayınla"}
+              </Button>
             </Grid>
           </Grid>
-
-          <Divider sx={{ my: 4 }} />
-
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteOutlineIcon />}
-              onClick={handleClear}
-              disabled={loading}
-            >
-              Temizle
-            </Button>
-
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              startIcon={
-                loading ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <SaveIcon />
-                )
-              }
-              disabled={loading}
-              sx={{
-                minWidth: 150,
-                background: "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
-                boxShadow: "0 3px 5px 2px rgba(33, 203, 243, .3)",
-              }}
-            >
-              {loading ? "Kaydediliyor..." : "Kaydet"}
-            </Button>
-          </Box>
         </form>
       </Paper>
     </Container>
   );
-};
-
-export default CreateAdvicePage;
+}

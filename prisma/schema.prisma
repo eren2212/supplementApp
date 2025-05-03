@@ -228,3 +228,16 @@ model Address {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 }
+
+model DoctorAdvice {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  doctorId    String   @db.ObjectId  // Doktor user ID'si
+  title       String   // Tavsiye başlığı
+  content     String   // Tavsiye içeriği
+  category    String   // Tavsiye kategorisi (Vitamin, Mineral, vb)
+  status      String   @default("draft") // Durum: draft, published
+  likes       Int      @default(0) // Beğeni sayısı
+  imageUrl    String?  // İlgili görsel URL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

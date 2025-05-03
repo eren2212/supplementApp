@@ -144,22 +144,11 @@ const mainNavItems = [
     path: "/doctor",
     exact: true,
   },
-  {
-    name: "Tavsiyelerim",
-    icon: <MedicalServices />,
-    path: "/doctor/advices",
-    exact: false,
-  },
+
   {
     name: "Yeni Tavsiye",
     icon: <Healing />,
     path: "/doctor/advices/create",
-    exact: false,
-  },
-  {
-    name: "Profilim",
-    icon: <Person />,
-    path: "/doctor/profile",
     exact: false,
   },
 ];
@@ -317,19 +306,6 @@ function DoctorLayoutContent({
             transformOrigin={{ horizontal: "right", vertical: "top" }}
             anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
           >
-            <MenuItem component={Link} href="/doctor/profile">
-              <ListItemIcon>
-                <Person fontSize="small" />
-              </ListItemIcon>
-              Profilim
-            </MenuItem>
-            <MenuItem component={Link} href="/doctor/settings">
-              <ListItemIcon>
-                <Settings fontSize="small" />
-              </ListItemIcon>
-              Ayarlar
-            </MenuItem>
-            <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <Logout fontSize="small" />

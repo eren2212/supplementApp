@@ -35,7 +35,7 @@ export async function PUT(
       );
     }
 
-    const orderId = params.id;
+    const orderId = await params.id;
     if (!orderId) {
       return NextResponse.json(
         { success: false, error: "Sipariş ID'si belirtilmedi" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
   Button,
@@ -39,6 +39,7 @@ import { styled } from "@mui/material/styles";
 import { SelectChangeEvent } from "@mui/material/Select";
 import { useSupplementStore } from "@/app/store/supplementStore";
 import { toast } from "react-hot-toast";
+import { use } from "react";
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -101,10 +102,16 @@ interface Supplement extends Omit<FormData, "price" | "stock"> {
   stock: number;
 }
 
-const EditSupplementPage = () => {
+interface PageParams {
+  params: {
+    id: string;
+  };
+}
+
+const EditSupplementPage = ({ params }: PageParams) => {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
+  // @ts-ignore - TypeScript hatasını gidermek için
+  const supplementId = use(params).id;
 
   const {
     supplements,
@@ -136,7 +143,7 @@ const EditSupplementPage = () => {
       try {
         setPageLoading(true);
         // First try to find the supplement in our store
-        const storedSupplement = supplements.find((s) => s.id === id);
+        const storedSupplement = supplements.find((s) => s.id === supplementId);
 
         if (storedSupplement) {
           setOriginalData(storedSupplement as any);
@@ -153,7 +160,9 @@ const EditSupplementPage = () => {
           setPageLoading(false);
         } else {
           // If not found in store, fetch from API
-          const response = await axios.get(`/api/admin/supplements/${id}`);
+          const response = await axios.get(
+            `/api/admin/supplements/${supplementId}`
+          );
           setOriginalData(response.data);
 
           // Fill the form with the fetched data
@@ -178,15 +187,13 @@ const EditSupplementPage = () => {
       }
     };
 
-    if (id) {
-      // If supplements is empty, fetch them first
-      if (supplements.length === 0) {
-        fetchSupplements().then(() => fetchSupplement());
-      } else {
-        fetchSupplement();
-      }
+    // If supplements is empty, fetch them first
+    if (supplements.length === 0) {
+      fetchSupplements().then(() => fetchSupplement());
+    } else {
+      fetchSupplement();
     }
-  }, [id, supplements, fetchSupplements]);
+  }, [supplementId, supplements, fetchSupplements]);
 
   const handleInputChange = (
     e:
@@ -269,7 +276,7 @@ const EditSupplementPage = () => {
     }
 
     try {
-      await updateSupplement(id, {
+      await updateSupplement(supplementId, {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),

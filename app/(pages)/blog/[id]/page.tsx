@@ -1,4 +1,5 @@
 import React from "react";
+import { use } from "react";
 import BlogDetailClient from "@/app/components/blog/BlogDetailClient";
 
 interface BlogDetailPageProps {
@@ -8,9 +9,12 @@ interface BlogDetailPageProps {
 }
 
 const BlogDetailPage = ({ params }: BlogDetailPageProps) => {
+  // @ts-ignore - TypeScript hatasını gidermek için
+  const blogId = use(params).id;
+
   return (
     <div>
-      <BlogDetailClient id={params.id} />
+      <BlogDetailClient id={blogId} />
     </div>
   );
 };

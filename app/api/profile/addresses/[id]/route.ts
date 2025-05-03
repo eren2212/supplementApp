@@ -12,6 +12,7 @@ interface Params {
 // Adres detayını getir
 export async function GET(request: Request, { params }: Params) {
   const session = await auth();
+  const id = await params.id;
 
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -35,7 +36,7 @@ export async function GET(request: Request, { params }: Params) {
 
     const address = await prisma.address.findUnique({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id, // Sadece kullanıcıya ait adreslere erişim sağla
       },
     });
@@ -63,6 +64,7 @@ export async function GET(request: Request, { params }: Params) {
 // Adresi güncelle
 export async function PUT(request: Request, { params }: Params) {
   const session = await auth();
+  const id = await params.id;
 
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -116,7 +118,7 @@ export async function PUT(request: Request, { params }: Params) {
     // Adresin varlığını ve kullanıcıya ait olduğunu kontrol et
     const existingAddress = await prisma.address.findUnique({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id,
       },
     });
@@ -134,7 +136,7 @@ export async function PUT(request: Request, { params }: Params) {
         where: {
           userId: user.id,
           isDefault: true,
-          id: { not: params.id }, // Güncellenen adres hariç
+          id: { not: id }, // Güncellenen adres hariç
         },
         data: { isDefault: false },
       });
@@ -142,7 +144,7 @@ export async function PUT(request: Request, { params }: Params) {
 
     // Adresi güncelle
     const updatedAddress = await prisma.address.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         title,
         isDefault: isDefault || false,
@@ -177,6 +179,7 @@ export async function PUT(request: Request, { params }: Params) {
 // Adresi sil
 export async function DELETE(request: Request, { params }: Params) {
   const session = await auth();
+  const id = await params.id;
 
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -201,7 +204,7 @@ export async function DELETE(request: Request, { params }: Params) {
     // Adresin varlığını ve kullanıcıya ait olduğunu kontrol et
     const existingAddress = await prisma.address.findUnique({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id,
       },
     });
@@ -215,7 +218,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
     // Adresi sil
     await prisma.address.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     // Adres silindikten sonra başka bir adresi varsayılan olarak işaretle (eğer varsa)

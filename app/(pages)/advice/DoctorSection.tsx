@@ -9,14 +9,8 @@ import {
   Avatar,
   Chip,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  DialogActions,
 } from "@mui/material";
 import { motion } from "framer-motion";
-import { useState } from "react";
 import { Email, Phone, VerifiedUser } from "@mui/icons-material";
 import type { Doctor } from "@/app/store/doctorAdviceStore";
 
@@ -25,25 +19,13 @@ interface DoctorSectionProps {
 }
 
 const DoctorSection = ({ doctors }: DoctorSectionProps) => {
-  const [openContact, setOpenContact] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [message, setMessage] = useState("");
-
-  const handleOpenContact = (doctor: Doctor) => {
-    setSelectedDoctor(doctor);
-    setOpenContact(true);
-  };
-
-  const handleCloseContact = () => {
-    setOpenContact(false);
-    setMessage("");
-  };
-
-  const handleSubmitContact = () => {
-    // İletişim form gönderimi işlevi
-    console.log("Mesaj gönderildi:", { doctor: selectedDoctor, message });
-    setMessage("");
-    handleCloseContact();
+  const handleContactDoctor = (doctor: Doctor) => {
+    if (doctor.email) {
+      window.location.href = `mailto:${doctor.email}?subject=Sağlık Danışmanlığı Hakkında&body=Merhaba Dr. ${doctor.name}, `;
+    } else {
+      // E-posta yoksa bilgi mesajı gösterilebilir ya da varsayılan bir e-posta kullanılabilir
+      window.location.href = `mailto:info@supplementapp.com?subject=Sağlık Danışmanlığı - ${doctor.name} İçin&body=Merhaba, Dr. ${doctor.name} ile iletişime geçmek istiyorum.`;
+    }
   };
 
   if (doctors.length === 0) {
@@ -202,7 +184,7 @@ const DoctorSection = ({ doctors }: DoctorSectionProps) => {
                       <Button
                         variant="contained"
                         color="primary"
-                        onClick={() => handleOpenContact(doctor)}
+                        onClick={() => handleContactDoctor(doctor)}
                         sx={{
                           borderRadius: "30px",
                           textTransform: "none",
@@ -223,59 +205,6 @@ const DoctorSection = ({ doctors }: DoctorSectionProps) => {
           </Grid>
         ))}
       </Grid>
-
-      {/* İletişim Modal */}
-      <Dialog
-        open={openContact}
-        onClose={handleCloseContact}
-        maxWidth="sm"
-        fullWidth
-      >
-        {selectedDoctor && (
-          <>
-            <DialogTitle>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Avatar src={selectedDoctor.image} alt={selectedDoctor.name} />
-                <Typography variant="h6" component="div">
-                  {selectedDoctor.name} ile İletişime Geç
-                </Typography>
-              </Box>
-            </DialogTitle>
-            <DialogContent dividers>
-              <Typography variant="body2" paragraph>
-                {selectedDoctor.title} olan uzmanımıza sormak istediğiniz
-                soruları yazabilirsiniz.
-              </Typography>
-              <TextField
-                autoFocus
-                margin="dense"
-                id="message"
-                label="Mesajınız"
-                type="text"
-                fullWidth
-                multiline
-                rows={6}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                variant="outlined"
-                required
-              />
-            </DialogContent>
-            <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
-              <Button onClick={handleCloseContact} color="inherit">
-                İptal
-              </Button>
-              <Button
-                onClick={handleSubmitContact}
-                variant="contained"
-                disabled={!message.trim()}
-              >
-                Gönder
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
     </Box>
   );
 };

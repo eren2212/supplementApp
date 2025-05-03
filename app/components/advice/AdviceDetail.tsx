@@ -143,9 +143,8 @@ const AdviceDetail = ({ advice, doctor }: AdviceDetailProps) => {
         <Typography
           variant="body1"
           sx={{ mb: 4, lineHeight: 1.8, color: "text.primary" }}
-        >
-          {advice.content}
-        </Typography>
+          dangerouslySetInnerHTML={{ __html: advice.content }}
+        />
 
         {/* Doktor Bilgisi */}
         <Paper

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -9,6 +9,7 @@ import { useCartStore } from "../../../store/cartStore";
 import { Category } from "@prisma/client";
 import CommentForm from "@/app/components/supplement/CommentForm";
 import { useSession } from "next-auth/react";
+import { use } from "react";
 
 interface Comment {
   id: string;
@@ -35,10 +36,17 @@ interface Supplement {
   comments: Comment[];
 }
 
-export default function SupplementDetailsPage() {
-  const params = useParams();
+interface SupplementParams {
+  params: {
+    id: string;
+  };
+}
+
+export default function SupplementDetailsPage({ params }: SupplementParams) {
   const router = useRouter();
   const { data: session } = useSession();
+  // @ts-ignore - TypeScript hatasını gidermek için
+  const supplementId = use(params).id;
   const [supplement, setSupplement] = useState<Supplement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,17 +55,15 @@ export default function SupplementDetailsPage() {
   const { addItem } = useCartStore();
 
   useEffect(() => {
-    if (params.id) {
-      fetchSupplementDetails();
-    }
-  }, [params.id, refreshComments]);
+    fetchSupplementDetails();
+  }, [refreshComments]);
 
   const fetchSupplementDetails = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/supplements/${params.id}`);
+      const response = await fetch(`/api/supplements/${supplementId}`);
 
       if (!response.ok) {
         if (response.status === 404) {
