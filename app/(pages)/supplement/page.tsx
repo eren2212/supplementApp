@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
 import { useCartStore } from "../../store/cartStore";
+import SurveyButton from "../../components/supplement/SurveyButton";
+import { useRouter } from "next/navigation";
 
 interface Supplement {
   id: string;
@@ -27,6 +29,7 @@ export default function SupplementsPage() {
   const [error, setError] = useState<string | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const { addItem } = useCartStore();
+  const router = useRouter();
 
   useEffect(() => {
     fetchSupplements();
@@ -67,6 +70,34 @@ export default function SupplementsPage() {
       imageUrl: supplement.imageUrl,
       quantity: 1,
     });
+  };
+
+  const handleSurveySupplements = (supplementNames: string[]) => {
+    // Find supplements from the list by name and add them to cart
+    let addedCount = 0;
+
+    supplementNames.forEach((name) => {
+      const foundSupplement = supplements.find((s) => s.name === name);
+      if (foundSupplement) {
+        handleAddToCart(foundSupplement);
+        addedCount++;
+      } else {
+        // If supplement not found in current list, log it
+        console.log(`Supplement not found: ${name}`);
+      }
+    });
+
+    if (addedCount > 0) {
+      toast.success(`${addedCount} ürün sepetinize eklendi!`, {
+        position: "top-right",
+        duration: 3000,
+      });
+
+      // Redirect to cart page after a short delay
+      setTimeout(() => {
+        router.push("/cart");
+      }, 1000);
+    }
   };
 
   const getCategoryName = (category: Category) => {
@@ -117,6 +148,21 @@ export default function SupplementsPage() {
   return (
     <div className="container mx-auto px-4 py-8 mt-25">
       <h1 className="text-3xl font-bold mb-8">Takviyeler</h1>
+
+      {/* Survey Banner */}
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 mb-8 shadow-md">
+        <div className="flex flex-col md:flex-row items-center justify-between">
+          <div className="mb-4 md:mb-0 md:mr-6">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Size Özel Takviye Önerileri
+            </h2>
+            <p className="text-white/80">
+              Kısa bir anket ile size en uygun takviyeleri belirleyelim.
+            </p>
+          </div>
+          <SurveyButton addToCart={handleSurveySupplements} />
+        </div>
+      </div>
 
       {/* Kategori Filtreleme */}
       <div className="flex flex-wrap justify-center gap-4 mb-8 overflow-x-auto pb-4">
