@@ -36,13 +36,67 @@ Anket iki şekilde başlatılabilir:
 
 ## Algoritma
 
-1. Kullanıcı 15 sorudan oluşan anketi doldurur.
-2. Yanıtlar, `suggestible_supplement` alanlarına göre işlenir.
-3. Kullanıcının birincil sağlık hedefine uygun ek takviyeler önerilir.
-4. En uygun 3 takviye belirlenir ve kullanıcıya gösterilir.
-5. Kullanıcı önerilen takviyelerden istediklerini seçer.
-6. Kullanıcı sepete eklemeden önce onay verir.
-7. Onaylanan takviyeler sepete eklenir.
+### Kategori Bazlı Puanlama Sistemi
+
+Anket yanıtlarına göre takviye önerileri sunmak için kategori bazlı puanlama sistemi geliştirilmiştir:
+
+1. **Kategorilere Ayırma ve Puanlama**:
+
+   - Her soru kategorize edilmiştir (beyin, kalp, uyku, eklem vb.)
+   - Kategori önemi için katsayılar belirlenmiştir (örn: beyin ve kalp 1.2, uyku ve eklem 1.1)
+   - Her soruya yanıt verildiğinde, ilgili supplementler puan kazanır
+   - Önemli sorular (aim) diğer sorulara göre daha yüksek ağırlığa sahiptir (15 vs 10)
+
+2. **Kategori Katsayıları**:
+
+   - Beyin ve Kalp: 1.2 (yüksek öncelik)
+   - Uyku ve Eklem: 1.1 (orta-yüksek öncelik)
+   - Bağışıklık, Enerji, Sindirim: 1.0 (orta öncelik)
+   - Deri, Göz, Saç: 0.9 (orta-düşük öncelik)
+   - Genel sorular: 0.8 (düşük öncelik)
+
+3. **Birincil Sağlık Hedefi**:
+
+   - Kullanıcının birincil sağlık hedefi (soru 24) önemli rol oynar
+   - Seçilen hedef kategorisine ait supplementler 20 ek puan kazanır
+   - Hedef kategorisine ait supplementler öncelikli olarak önerilir
+
+4. **En Uygun Supplementlerin Seçimi**:
+
+   - Tüm supplementler puanlarına göre sıralanır
+   - En yüksek puanlı 3 supplement kullanıcıya önerilir
+   - Eğer 3'ten az öneri varsa, kullanıcının birincil hedefine göre ek öneriler eklenir
+   - Hala 3'ten az ise genel popüler supplementlerden eksik tamamlanır
+
+5. **Kullanıcı Seçimi ve Sepete Ekleme**:
+
+   - Kullanıcı önerilen supplementlerden istediklerini seçebilir
+   - Seçim sonrası sepete ekleme onaylanır ve sepete eklenir
+
+6. **Cevaplara Göre Puan Sistemi**:
+
+   - Her soru için belirlenmiş cevaplar, belirli takviyeler için puan üretir
+   - Örneğin:
+     - "Haftada kaç kere balık yiyorsunuz?" sorusuna "Asla" cevabı, Omega-3 takviyesine puan ekler
+     - "Göz kuruluğu yaşıyor musunuz?" sorusuna "Evet" cevabı, Omega-3 takviyesine puan ekler
+     - "Stres seviyenizi nasıl tanımlarsınız?" sorusuna "Sürekli stres halindeyim" cevabı, Ashwagandha takviyesine puan ekler
+   - Puanlar şu şekilde hesaplanır:
+     - `Puan = Soru Ağırlığı(10/15) * Kategori Katsayısı(0.8-1.2)`
+     - Normal sorular 10 baz puan, hedef (aim) soruları 15 baz puan
+     - Bu puan kategori katsayısıyla çarpılır (örneğin beyin sağlığı için 1.2, genel sorular için 0.8)
+
+7. **Negatif Puanlama**:
+
+   - Sistem şu anda negatif puanlama içermemektedir
+   - Her cevap yalnızca belirtilen takviyeler için pozitif puan üretir
+   - Belirli bir takviyeye puan eklenmeyen cevaplar, puanlama sisteminde dikkate alınmaz
+
+8. **Eşleşme Mekanizması**:
+   - Sistem, kullanıcı cevabını ve önerilen takviyeye bağlanan anahtar kelimeyi eşleştirir
+   - Örneğin "uykuya dalmakta güçlük çekiyorum" cevabı "uykuya dalmakta" anahtar kelimesi ile eşleşirse, ilgili takviye puan alır
+   - Çoklu seçim sorularında her seçenek ayrı ayrı değerlendirilir
+
+Bu algoritma, kullanıcıların bireysel ihtiyaçlarına göre özelleştirilmiş ve daha doğru takviye önerileri sunmak üzere tasarlanmıştır.
 
 ## Seçilen 15 Soru
 

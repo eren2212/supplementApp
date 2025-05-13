@@ -72,7 +72,59 @@ async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
   let cartItems: CartItemType[] = [];
   try {
     if (paymentIntent.metadata?.cartItems) {
-      cartItems = JSON.parse(paymentIntent.metadata.cartItems);
+      const parsedData = JSON.parse(paymentIntent.metadata.cartItems);
+
+      // Farklı formatlarda gelebilecek cartItems yapılarını kontrol edelim
+      if (Array.isArray(parsedData)) {
+        // Normal dizi formatı
+        cartItems = parsedData.map((item) => {
+          // Kısaltılmış formatta geldiyse (qty, p) onu genişletelim
+          if (item.qty !== undefined && item.p !== undefined) {
+            return {
+              id: item.id,
+              name: item.name || `Ürün ID: ${item.id}`,
+              quantity: item.qty,
+              price: item.p,
+              imageUrl: item.imageUrl || undefined,
+            };
+          }
+
+          // Sadece id dizisi geldiyse (en kısaltılmış format)
+          if (typeof item === "string") {
+            return {
+              id: item,
+              name: `Ürün ID: ${item}`,
+              quantity: 1,
+              price: 0, // Fiyat bilgisi yok, veritabanından alınabilir
+              imageUrl: undefined,
+            };
+          }
+
+          // Normal format
+          return item;
+        });
+      }
+      // Sadece count ve totalAmount bilgisi varsa (en son çare formatı)
+      else if (parsedData.count !== undefined) {
+        console.warn(
+          "Sepet öğeleri basitleştirilmiş formatta (count only), veritabanından alınacak."
+        );
+
+        // Burada Prisma ile sipariş oluşturulamayacak kadar data kaybolmuş olabilir
+        // Bu durumda veritabanından güncel sepet bilgisini çekmek gerekebilir
+        // veya alternatif bir işlem uygulamak gerekebilir
+
+        // Şimdilik basit bir placeholder oluşturalım
+        cartItems = [
+          {
+            id: "placeholder",
+            name: `${parsedData.count} ürün içeren sipariş`,
+            quantity: 1,
+            price: paymentIntent.amount / 100, // Toplam tutarı tek bir ürün olarak göster
+            imageUrl: undefined,
+          },
+        ];
+      }
     } else if (paymentIntent.metadata?.orderItems) {
       cartItems = JSON.parse(paymentIntent.metadata.orderItems);
     }
@@ -83,32 +135,96 @@ async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
 
     // Sepet öğelerini doğrula
     for (const item of cartItems) {
+      // Tüm gerekli alanlar yoksa, hata verme ama log'la
       if (
         !item.id ||
         !item.name ||
         typeof item.quantity !== "number" ||
         typeof item.price !== "number"
       ) {
-        console.warn("Geçersiz sepet öğesi:", item);
-        throw new Error("Sepet öğelerinde eksik veya geçersiz bilgiler var");
+        console.warn("Eksik bilgi içeren sepet öğesi:", item);
+
+        // Eksik alanları tamamlayalım
+        item.name = item.name || `Ürün ID: ${item.id}`;
+        item.quantity = item.quantity || 1;
+        item.price = item.price || 0;
       }
     }
   } catch (error) {
     console.error("Sepet öğeleri ayrıştırılamadı:", error);
-    throw new Error("Sepet öğeleri ayrıştırılamadı");
+
+    // Hata durumunda basit bir geçici çözüm
+    // Ödeme başarılı olduğu için en azından bir kayıt oluşturalım
+    cartItems = [
+      {
+        id: "error-parsing",
+        name: "Sepet bilgisi alınamadı",
+        quantity: 1,
+        price: paymentIntent.amount / 100,
+        imageUrl: undefined,
+      },
+    ];
   }
 
   // Teslimat adresi parse et
   let shippingAddress: ShippingAddressType = {};
   try {
     if (paymentIntent.metadata?.shippingAddress) {
-      shippingAddress = JSON.parse(
-        paymentIntent.metadata.shippingAddress
-      ) as ShippingAddressType;
+      const parsedAddress = JSON.parse(paymentIntent.metadata.shippingAddress);
+
+      // Kısaltılmış teslimat adresi formatını kontrol et
+      if (
+        parsedAddress.name &&
+        !parsedAddress.firstName &&
+        !parsedAddress.lastName
+      ) {
+        // Ad ve soyadı ayır
+        const nameParts = parsedAddress.name.split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        shippingAddress = {
+          firstName,
+          lastName,
+          email: parsedAddress.email || "",
+          phone: parsedAddress.phone || "",
+          address: "",
+          city: "",
+          postcode: "",
+          country: "Türkiye",
+        };
+      }
+      // En minimal teslimat adresi formatı
+      else if (parsedAddress.addressExists) {
+        shippingAddress = {
+          firstName: "Bilinmiyor",
+          lastName: "Bilinmiyor",
+          email: "",
+          phone: "",
+          address: "Adres bilgisi veritabanında güncellenmelidir",
+          city: "",
+          postcode: "",
+          country: "Türkiye",
+        };
+      } else {
+        // Normal format
+        shippingAddress = parsedAddress as ShippingAddressType;
+      }
     }
   } catch (error) {
     console.error("Teslimat adresi ayrıştırılamadı:", error);
-    throw new Error("Teslimat adresi ayrıştırılamadı");
+
+    // Hata durumunda basit bir teslimat adresi oluştur
+    shippingAddress = {
+      firstName: "Ayrıştırma",
+      lastName: "Hatası",
+      email: "",
+      phone: "",
+      address: "Teslimat adresi ayrıştırılamadı",
+      city: "",
+      postcode: "",
+      country: "Türkiye",
+    };
   }
 
   // Veritabanı işlemleri için transaction kullan

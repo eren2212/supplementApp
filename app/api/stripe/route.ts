@@ -61,28 +61,79 @@ export async function POST(req: NextRequest) {
     // Stripe metadata'sı için maksimum boyut sınırlaması var, bu yüzden güvenli bir şekilde kısaltıyoruz
     // ve çok uzunsa özet bir bilgi saklıyoruz
     const prepareMetadata = () => {
+      // Stripe metadata değerlerinin 500 karakterle sınırlı olduğunu kontrol edelim
+      const isValueTooLong = (value: string) => value.length > 490; // 500'den biraz az bırakalım güvenlik için
+
+      // Sepet öğelerini gerekirse kısalt
+      let processedCartItems = cartItemsString;
+
+      // Eğer cartItems 490 karakterden uzunsa, optimize edilmiş bir versiyonunu oluştur
+      if (isValueTooLong(processedCartItems)) {
+        console.log("CartItems çok uzun, kısaltılıyor...");
+
+        // Önce minimuma indirgenmiş veriyi deneyelim
+        let simplifiedCartItems = JSON.stringify(
+          cartItems.map((item) => ({
+            id: item.id,
+            qty: item.quantity,
+            p: item.price,
+          }))
+        );
+
+        // Hala çok uzunsa, sadece ID'leri gönderelim
+        if (isValueTooLong(simplifiedCartItems)) {
+          simplifiedCartItems = JSON.stringify(
+            cartItems.map((item) => item.id)
+          );
+
+          // Son çare olarak sepet öğesi sayısını ve toplam tutarı gönderelim
+          if (isValueTooLong(simplifiedCartItems)) {
+            simplifiedCartItems = JSON.stringify({
+              count: cartItems.length,
+              totalAmount: amount,
+            });
+          }
+        }
+
+        processedCartItems = simplifiedCartItems;
+      }
+
       const metadataObj = {
         userId: session.user.id,
-        cartItems: cartItemsString,
-        shippingAddress: shippingAddressString,
+        cartItems: processedCartItems,
         itemCount: cartItems.length.toString(),
         ...metadata,
       };
 
-      // Stripe metadata değerlerinin 500 karakterle sınırlı olduğunu kontrol edelim
-      const isValueTooLong = (value: string) => value.length > 500;
+      // Teslimat adresini gerekirse kısalt
+      let processedShippingAddress = shippingAddressString;
+      if (isValueTooLong(processedShippingAddress)) {
+        console.log("ShippingAddress çok uzun, kısaltılıyor...");
+        // Sadece temel bilgileri içeren adres
+        processedShippingAddress = JSON.stringify({
+          name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          email: shippingAddress.email,
+          phone: shippingAddress.phone,
+        });
+      }
 
-      // cartItems çok uzunsa, sadece kimlik bilgilerini saklayalım
-      if (isValueTooLong(metadataObj.cartItems)) {
-        console.log("CartItems çok uzun, kısaltılıyor...");
-        metadataObj.cartItems = JSON.stringify(
-          cartItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          }))
-        );
+      metadataObj.shippingAddress = processedShippingAddress;
+
+      // Son bir kontrol daha yapalım
+      for (const [key, value] of Object.entries(metadataObj)) {
+        if (typeof value === "string" && isValueTooLong(value)) {
+          console.log(
+            `Metadata değeri '${key}' hala çok uzun, daha fazla kısaltılıyor...`
+          );
+          if (key === "cartItems") {
+            metadataObj[key] = JSON.stringify({ count: cartItems.length });
+          } else if (key === "shippingAddress") {
+            metadataObj[key] = JSON.stringify({ addressExists: true });
+          } else {
+            // Diğer potansiyel uzun değerleri elleçle
+            metadataObj[key] = value.substring(0, 480) + "...";
+          }
+        }
       }
 
       return metadataObj;

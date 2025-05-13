@@ -14,13 +14,33 @@ interface SurveyModalProps {
 
 // Select 15 most important questions from the survey
 const getSelectedQuestions = () => {
+  // Temel sorular - farklı kategorilerden dengeli bir dağılım sağlamak için
+  const selectedQuestionIds = [
+    // Genel sağlık ve temel besleme soruları (3)
+    1, 2, 3,
+
+    // Uyku ve enerji soruları (3)
+    10, 11, 12,
+
+    // Fiziksel sağlık soruları (3)
+    15, 17, 19,
+
+    // Mental sağlık soruları (2)
+    21, 23,
+
+    // Sağlık geçmişi soruları (1)
+    9,
+
+    // Cinsiyete özel sorular (2)
+    // Bu soruların içeriğine bağlı olarak erkek/kadın sağlığı sorularını da dahil edebiliriz
+    6, 20,
+
+    // Birincil sağlık hedefi (1 - çok önemli)
+    24,
+  ];
+
   const commonQuestions =
     surveyQuestions.find((cat) => cat.category === "common")?.questions || [];
-
-  // Question IDs we want to include - selected the most relevant 15 questions
-  const selectedQuestionIds = [
-    1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 15, 17, 19, 21, 24,
-  ];
 
   return commonQuestions
     .filter((question) => selectedQuestionIds.includes(question.id))
@@ -66,78 +86,154 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
   };
 
   const findSuggestedSupplements = () => {
-    const suggested: string[] = [];
-    const allQuestions =
-      surveyQuestions.find((cat) => cat.category === "common")?.questions || [];
+    // Supplement puanlama sistemi
+    const supplementScores: Record<
+      string,
+      { score: number; categories: Set<string> }
+    > = {};
 
-    // Process all answers to find suggested supplements
-    Object.entries(answers).forEach(([questionId, answer]) => {
-      const question = allQuestions.find((q) => q.id === parseInt(questionId));
+    // Kategori önceliklendirme için puan katsayıları
+    const categoryMultipliers: Record<string, number> = {
+      beyin: 1.2, // Beyin sağlığı yüksek öncelik (x1.2 puan)
+      kalp: 1.2, // Kalp sağlığı yüksek öncelik (x1.2 puan)
+      uyku: 1.1, // Uyku sağlığı orta-yüksek öncelik (x1.1 puan)
+      eklem: 1.1, // Eklem sağlığı orta-yüksek öncelik (x1.1 puan)
+      bağışıklık: 1.0, // Bağışıklık orta öncelik (x1.0 puan)
+      enerji: 1.0, // Enerji orta öncelik (x1.0 puan)
+      sindirim: 1.0, // Sindirim orta öncelik (x1.0 puan)
+      deri: 0.9, // Deri sağlığı orta-düşük öncelik (x0.9 puan)
+      göz: 0.9, // Göz sağlığı orta-düşük öncelik (x0.9 puan)
+      saç: 0.9, // Saç sağlığı orta-düşük öncelik (x0.9 puan)
+      "erkek sağlığı": 1.0, // Erkek sağlığı orta öncelik (x1.0 puan)
+      "kadın sağlığı": 1.0, // Kadın sağlığı orta öncelik (x1.0 puan)
+      common: 0.8, // Genel sorular için düşük katsayı (x0.8 puan)
+    };
 
-      if (question?.suggestible_supplement) {
-        question.suggestible_supplement.forEach(
-          (suggestion: { option: string; supplement: string }) => {
-            // For single choice questions
-            if (
-              typeof answer === "string" &&
-              answer.toLowerCase().includes(suggestion.option.toLowerCase())
-            ) {
-              if (!suggested.includes(suggestion.supplement)) {
-                suggested.push(suggestion.supplement);
+    // Tüm kategori sorularını işle
+    for (const categoryObj of surveyQuestions) {
+      const category = categoryObj.category;
+      const categoryQuestions = categoryObj.questions;
+      const categoryMultiplier = categoryMultipliers[category] || 1.0;
+
+      // Her soruyu işle
+      for (const question of categoryQuestions) {
+        const questionId = question.id;
+        const answer = answers[questionId];
+
+        // Kullanıcı bu soruya cevap vermemişse, atla
+        if (!answer) continue;
+
+        // Soru için belirli puan ağırlığı
+        // Hedefe yönelik sorular (aim) daha önemli - 15 puan
+        // Normal sorular - 10 puan
+        const questionWeight = question.type === "aim" ? 15 : 10;
+
+        // Cevaba göre puanlama
+        if (question.suggestible_supplement) {
+          question.suggestible_supplement.forEach(
+            (suggestion: { option: string; supplement: string }) => {
+              // Eğer supplementin puanı yoksa başlat
+              if (!supplementScores[suggestion.supplement]) {
+                supplementScores[suggestion.supplement] = {
+                  score: 0,
+                  categories: new Set<string>(),
+                };
+              }
+
+              // Kategori ekleme
+              supplementScores[suggestion.supplement].categories.add(category);
+
+              // Tek seçenek sorular için (radio buttons)
+              // Örnek: "Uyku kaliteniz nasıl?" sorusuna "Berbat" cevabı seçildiyse
+              // ve "Berbat" cevabı Magnezyum Gece Pudrasını öneriyorsa puan eklenir
+              if (
+                typeof answer === "string" &&
+                answer.toLowerCase().includes(suggestion.option.toLowerCase())
+              ) {
+                // Puan ekleme: Soru ağırlığı * Kategori katsayısı
+                // Örneğin: 10 * 1.1 = 11 puan (uyku kategorisi katsayısı 1.1)
+                supplementScores[suggestion.supplement].score +=
+                  questionWeight * categoryMultiplier;
+              }
+              // Çoklu seçenek sorular için (checkboxes)
+              // Örnek: "Hangi sağlık sorunlarınız var?" sorusuna "Uyku problemi" ve "Stres" seçilmişse
+              // her biri için ayrı puanlama yapılır
+              else if (
+                Array.isArray(answer) &&
+                answer.some((a) =>
+                  a.toLowerCase().includes(suggestion.option.toLowerCase())
+                )
+              ) {
+                // Her eşleşme için puan ekleme
+                supplementScores[suggestion.supplement].score +=
+                  questionWeight * categoryMultiplier;
               }
             }
-            // For multiple choice questions
-            else if (
-              Array.isArray(answer) &&
-              answer.some((a) =>
-                a.toLowerCase().includes(suggestion.option.toLowerCase())
-              )
-            ) {
-              if (!suggested.includes(suggestion.supplement)) {
-                suggested.push(suggestion.supplement);
-              }
-            }
-          }
-        );
+          );
+        }
       }
-    });
+    }
 
-    // Get user's primary health goal (question 24)
+    // Kullanıcının birincil sağlık hedefi (soru 24)
+    // Bu soru, kullanıcının en çok önem verdiği sağlık alanını belirler
     const primaryGoal = answers[24];
     if (primaryGoal && typeof primaryGoal === "string") {
-      // Find category based on goal
+      const targetCategory = primaryGoal.toLowerCase();
+
+      // Birincil hedefe göre ek puanlama
+      Object.keys(supplementScores).forEach((supplement) => {
+        if (supplementScores[supplement].categories.has(targetCategory)) {
+          // Hedef kategorideki supplementlere ek puan (20 puan bonus)
+          // Örnek: Kullanıcı "Beyin" seçtiyse, beyin kategorisindeki supplementler +20 puan alır
+          supplementScores[supplement].score += 20;
+        }
+      });
+    }
+
+    // Puanları azalan şekilde sırala ve en yüksek puanlı supplementleri al
+    const sortedSupplements = Object.entries(supplementScores)
+      .sort((a, b) => b[1].score - a[1].score)
+      .filter(([name]) => supplementFeatures.some((s) => s.name === name))
+      .map(([name]) => name);
+
+    // En yüksek puanlı 3 supplement'i öner
+    const finalSuggestions = sortedSupplements.slice(0, 3);
+
+    // Eğer 3'ten az supplement öneri varsa, kullanıcının birincil hedefine göre ek öneriler ekle
+    if (
+      finalSuggestions.length < 3 &&
+      primaryGoal &&
+      typeof primaryGoal === "string"
+    ) {
       const targetCategory = primaryGoal.toLowerCase();
       const categoryQuestions =
         surveyQuestions.find(
           (cat) => cat.category.toLowerCase() === targetCategory
         )?.questions || [];
 
-      // Process goal-specific suggestions
-      if (categoryQuestions.length > 0) {
-        // Get category-specific recommendations
-        categoryQuestions.forEach((question) => {
-          if (
-            question.suggestible_supplement &&
-            question.suggestible_supplement.length > 0
-          ) {
-            // Just take the first supplement from each question's suggestions
-            const supplement = question.suggestible_supplement[0].supplement;
-            if (!suggested.includes(supplement)) {
-              suggested.push(supplement);
+      // Hedef kategorideki tavsiyelerden ek supplement ekle
+      for (const question of categoryQuestions) {
+        if (finalSuggestions.length >= 3) break;
+
+        if (
+          question.suggestible_supplement &&
+          question.suggestible_supplement.length > 0
+        ) {
+          for (const suggestion of question.suggestible_supplement) {
+            const supplement = suggestion.supplement;
+            if (
+              !finalSuggestions.includes(supplement) &&
+              supplementFeatures.some((s) => s.name === supplement)
+            ) {
+              finalSuggestions.push(supplement);
+              if (finalSuggestions.length >= 3) break;
             }
           }
-        });
+        }
       }
     }
 
-    // Limit to 3 supplements and check if they exist in supplementFeatures
-    const validSupplements = suggested.filter((name) =>
-      supplementFeatures.some((s) => s.name === name)
-    );
-
-    const finalSuggestions = validSupplements.slice(0, 3);
-
-    // If we have less than 3 valid supplements, add some common ones to reach 3
+    // Hala 3'ten az supplement varsa, genel popüler supplementlerden ekle
     if (finalSuggestions.length < 3) {
       const commonSupplements = [
         "Vitamin D",
@@ -145,6 +241,7 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
         "Omega-3",
         "B12 Vitamini",
         "Çinko",
+        "Ashwagandha",
       ];
 
       for (const supp of commonSupplements) {
@@ -160,7 +257,7 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
 
     setSuggestedSupplements(finalSuggestions);
 
-    // Initialize all supplements as selected
+    // Tüm supplementleri seçili olarak işaretle
     const initialSelectedState: Record<string, boolean> = {};
     finalSuggestions.forEach((supp) => {
       initialSelectedState[supp] = true;
@@ -289,43 +386,90 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
 
   const renderResults = () => (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">
-        Cevaplarınıza göre, size aşağıdaki takviyeleri öneriyoruz:
-      </p>
+      <div className="text-center bg-blue-50 p-4 rounded-lg">
+        <p className="text-md font-medium text-blue-800 mb-2">
+          Anket Değerlendirme Sonucu
+        </p>
+        <p className="text-sm text-gray-600">
+          Verdiğiniz yanıtlar kapsamlı bir şekilde değerlendirildi. Sağlık
+          profilinize en uygun takviyeler aşağıda listelenmiştir.
+        </p>
+      </div>
 
       <div className="space-y-4">
         {suggestedSupplements.length > 0 ? (
-          suggestedSupplements.map((supplement, idx) => {
-            const supplementInfo = supplementFeatures.find(
-              (s) => s.name === supplement
-            );
-            return (
-              <div key={idx} className="p-4 border rounded-lg">
-                <div className="flex items-center mb-2">
-                  <input
-                    type="checkbox"
-                    id={`supplement-${idx}`}
-                    checked={selectedSupplements[supplement] || false}
-                    onChange={() => handleSupplementToggle(supplement)}
-                    className="mr-2"
-                  />
-                  <label
-                    htmlFor={`supplement-${idx}`}
-                    className="font-medium cursor-pointer"
-                  >
-                    {supplement}
-                  </label>
+          <>
+            {suggestedSupplements.map((supplement, idx) => {
+              const supplementInfo = supplementFeatures.find(
+                (s) => s.name === supplement
+              );
+              return (
+                <div
+                  key={idx}
+                  className="p-4 border rounded-lg hover:shadow-md transition-shadow duration-200"
+                >
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id={`supplement-${idx}`}
+                      checked={selectedSupplements[supplement] || false}
+                      onChange={() => handleSupplementToggle(supplement)}
+                      className="mr-2 h-5 w-5 text-blue-600"
+                    />
+                    <label
+                      htmlFor={`supplement-${idx}`}
+                      className="font-medium text-lg cursor-pointer text-blue-700"
+                    >
+                      {supplement}
+                    </label>
+                  </div>
+                  <ul className="mt-3 pl-5 list-disc text-sm text-gray-600">
+                    {supplementInfo?.features.map((feature, fidx) => (
+                      <li key={fidx} className="mb-1">
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="mt-2 pl-5 list-disc text-sm text-gray-600">
-                  {supplementInfo?.features.map((feature, fidx) => (
-                    <li key={fidx}>{feature}</li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })
+              );
+            })}
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-3">
+              <p className="text-sm text-gray-600 mb-2">
+                <span className="font-medium">
+                  Öneri sistemi nasıl çalışır?
+                </span>{" "}
+                Cevaplarınız bir puanlama algoritması ile değerlendirilir:
+              </p>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                <li>
+                  Her soru kategorize edilmiştir (beyin, kalp, uyku, sindirim
+                  vb.)
+                </li>
+                <li>
+                  Cevaplarınız, sağlık profilinize uygun takviyelere puan ekler
+                </li>
+                <li>
+                  Birincil sağlık hedefiniz, ilgili kategorideki takviyelere ek
+                  puan kazandırır
+                </li>
+                <li>En yüksek puanlı takviyeler size önerilir</li>
+              </ul>
+            </div>
+            <p className="text-sm text-gray-500 italic px-2">
+              Bu öneriler, anket cevaplarınıza göre kişiselleştirilmiş bir
+              algoritma kullanılarak oluşturulmuştur. Sağlık profilinize en
+              uygun olduğunu düşündüğümüz takviyeleri seçmenizi öneriyoruz.
+            </p>
+          </>
         ) : (
-          <p>Üzgünüz, cevaplarınıza göre uygun takviye bulunamadı.</p>
+          <div className="p-4 bg-yellow-50 rounded-lg text-center">
+            <p className="text-yellow-700">
+              Üzgünüz, cevaplarınıza göre uygun takviye bulunamadı.
+            </p>
+            <p className="text-sm text-gray-600 mt-2">
+              Lütfen anketi tekrar deneyin veya daha fazla soru yanıtlayın.
+            </p>
+          </div>
         )}
       </div>
 
@@ -333,7 +477,7 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
         <button
           type="button"
           onClick={handleAddToCartClick}
-          className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+          className="w-full px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors duration-200"
         >
           Seçilen Takviyeleri Sepete Ekle
         </button>
@@ -341,7 +485,7 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
         <button
           type="button"
           onClick={resetSurvey}
-          className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200"
+          className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors duration-200"
         >
           Anketi Yeniden Başlat
         </button>
@@ -349,7 +493,7 @@ const SurveyModal = ({ isOpen, closeModal, addToCart }: SurveyModalProps) => {
         <button
           type="button"
           onClick={closeModal}
-          className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+          className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors duration-200"
         >
           Kapat
         </button>
